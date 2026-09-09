@@ -33,5 +33,12 @@ try {
     if (array_key_exists('maintenance', config_get_path('installedpackages/recoveryguard/settings', [])) ||
         config_get_path('system/hostname') !== 'fixture' || config_get_path('installedpackages/otherpackage/keep') !== 'untouched') throw new RuntimeException('Second save lost native values');
     $checks++;
+    $settings['enabled'] = 'on';
+    recovery_guard_save_settings($settings);
+    file_put_contents($path, dump_xml_config($fixture_config, 'pfsense'));
+    $fixture_config = parse_xml_config($path, ['pfsense']);
+    $compiled = recovery_guard_compile_settings(config_get_path('installedpackages/recoveryguard/settings', []));
+    if (!$compiled['enabled'] || $compiled['mode'] !== 'monitor' || $compiled['maintenance']) throw new RuntimeException('Enabled monitor did not survive native XML');
+    $checks++;
     echo "PASS: {$checks} original pfSense XML round-trip checks; fixture config only.\n";
 } finally { unlink($path); }

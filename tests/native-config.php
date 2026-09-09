@@ -12,7 +12,7 @@ if ($fixture_writes !== 1 || config_get_path('installedpackages/recoveryguard/se
     config_get_path('system/hostname') !== 'unchanged' || config_get_path('installedpackages/otherpackage/keep') !== 'unchanged') throw new RuntimeException('Native save modified unrelated settings');
 $checks++;
 $saved = $fixture_config;
-foreach ([['enabled' => 'on'], ['mode' => 'recover'], ['interface' => 'wan']] as $change) {
+foreach ([['mode' => 'repair'], ['mode' => 'recover'], ['interface' => 'wan']] as $change) {
     $rejected = false;
     try { recovery_guard_save_settings(array_replace($settings, $change)); }
     catch (RuntimeException | InvalidArgumentException) { $rejected = true; }
@@ -32,6 +32,10 @@ $prefix = $port . '/files/usr/local/';
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($prefix, FilesystemIterator::SKIP_DOTS)) as $file) if ($file->isFile()) $actual[] = str_replace('\\', '/', substr($file->getPathname(), strlen($prefix)));
 sort($actual);
 if ($actual !== $plist || count($plist) !== count(array_unique($plist))) throw new RuntimeException('Install manifest differs from staged files');
+$checks++;
+$fixture_write_result = 'success';
+recovery_guard_save_settings(array_replace($settings, ['enabled' => 'on']));
+if (!recovery_guard_compile_settings(config_get_path('installedpackages/recoveryguard/settings', []))['enabled']) throw new RuntimeException('Monitor activation was not saved');
 $checks++;
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($port, FilesystemIterator::SKIP_DOTS)) as $file) {
     if ($file->isFile() && str_contains(file_get_contents($file->getPathname()), "\r\n")) throw new RuntimeException('Port contains CRLF text');

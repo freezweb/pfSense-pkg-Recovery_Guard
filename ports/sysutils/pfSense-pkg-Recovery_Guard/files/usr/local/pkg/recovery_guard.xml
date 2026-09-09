@@ -10,4 +10,12 @@
     <section>Services</section>
     <url>/services_recovery_guard.php</url>
   </menu>
+  <service>
+    <name>recovery_guard</name>
+    <description>Recovery Guard monitor</description>
+    <rcfile>recovery_guard.sh</rcfile>
+    <custom_php_service_status_command>is_pid_running('/var/run/recovery_guard.pid')</custom_php_service_status_command>
+  </service>
+  <custom_php_resync_config_command>recovery_guard_service_apply();</custom_php_resync_config_command>
+  <custom_php_deinstall_command>recovery_guard_service_apply(true);</custom_php_deinstall_command>
 </packagegui>

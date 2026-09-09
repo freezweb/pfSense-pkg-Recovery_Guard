@@ -2,7 +2,9 @@
 
 The canonical PHP library lives in `src`. Run `php tools/stage-port.php` once to create a complete `build/ports/sysutils/pfSense-pkg-Recovery_Guard` source port, including libraries, native adapter/page/XML, license and sorted install manifest. Pass an unused destination directory to create another staging tree; the tool refuses to overwrite an existing destination.
 
-The template is a configuration-only preview. It does not start a supervisor, initialize or erase an action journal, register a service, repair PHP-FPM or reboot. Both the page and save adapter enforce this limitation. Saving settings uses pfSense's native config API and writes only `installedpackages/recoveryguard/settings`. The element must not be named `config`: pfSense treats that name as a list, changing the shape during XML serialization. Native `write_config` still performs its normal system-wide save/backup/synchronization behavior. A reported write failure restores the current request's package settings; this is not a claim of rollback after a partially persisted native write.
+The template is a monitor-only preview. It registers a native service and can start monitoring when explicitly enabled with valid peers. Both the save adapter and daemon reject repair/recovery modes. Package resync stops the service, initializes a new journal or validates the existing one, then starts the enabled monitor. Deinstallation stops the service and retains its journal. Missing or invalid existing state is never silently reset. These hooks still require actual pfSense lifecycle validation.
+
+Saving settings uses pfSense's native config API and writes only `installedpackages/recoveryguard/settings`. The element must not be named `config`: pfSense treats that name as a list, changing the shape during XML serialization. Native `write_config` still performs its normal system-wide save/backup/synchronization behavior. A reported write failure restores the current request's package settings; this is not a claim of rollback after a partially persisted native write. A later service-apply failure is reported separately; already saved settings remain saved.
 
 The menu points to `services_recovery_guard.php`, with the native page privilege declaration and `guiconfig.inc` authentication/CSRF path. Actual browser rendering, privilege enforcement, CSRF behavior and package registration still require an isolated pfSense guest. Synthetic adapter tests do not establish these properties.
 
@@ -14,12 +16,12 @@ Sources: [Netgate package development](https://docs.netgate.com/pfsense/en/lates
 
 ## Reproduce the laboratory build
 
-Use an isolated FreeBSD guest with `pkg` and PHP, and the pfSense `devel` ports framework. For this dependency-free preview, the framework's `Mk`, `Templates`, `Tools` and `ports-mgmt/pkg` directories were exported from the exact revision in [VALIDATION.md](VALIDATION.md). Export with `git -c core.autocrlf=false archive` when preparing the framework on Windows. Copy the generated port into its `sysutils` directory, then run from that port directory:
+Use an isolated FreeBSD guest with `pkg`, PHP CLI and its filter, pcntl, posix and XML extensions, and the pfSense `devel` ports framework. With these dependencies already installed, the framework's `Mk`, `Templates`, `Tools` and `ports-mgmt/pkg` directories were sufficient, exported from the exact revision in [VALIDATION.md](VALIDATION.md). Export with `git -c core.autocrlf=false archive` when preparing the framework on Windows. Stage the port into a separate unused directory, then copy it into the framework's `sysutils` directory and run from that port directory:
 
 ```sh
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes stage
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes check-plist stage-qa package
-pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_2.pkg
+pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_3.pkg
 ```
 
 These commands build and inspect the package without installing it or executing its pfSense registration scripts. They passed on FreeBSD 15.0-p13; the resulting ABI is not a claim of compatibility with another FreeBSD or pfSense release.

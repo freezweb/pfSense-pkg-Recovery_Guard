@@ -1,5 +1,6 @@
 Recovery Guard is an independent recovery supervisor for pfSense.
-This development preview provides native configuration editing and tested
-policy libraries. It does not yet start monitoring or execute recovery actions.
+This development preview provides native configuration editing, an independent
+monitor service and tested policy libraries. Recovery actions remain disabled.
+Installation and lifecycle validation on supported pfSense guests is pending.
 
 WWW: https://github.com/freezweb/pfSense-pkg-Recovery_Guard

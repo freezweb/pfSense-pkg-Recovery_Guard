@@ -1,12 +1,16 @@
 # Runtime integration
 
-`RuntimeSupervisor::cycle()` joins native-shaped configuration snapshots, the PHP challenge adapter, real network parsing/local-route checks, peer qualification, a log observation and the durable action coordinator. The platform snapshot and action functions are injected; no installed daemon starts these cycles yet. The current package UI still rejects activation.
+`RuntimeSupervisor::cycle()` joins native-shaped configuration snapshots, the PHP challenge adapter, real network parsing/local-route checks, peer qualification, a log observation and the durable action coordinator. The native daemon connects these adapters in monitor mode. Both configuration saves and the daemon reject active recovery modes until real executors are implemented and validated.
 
 Snapshot adapters must provide fresh settings, interfaces, VLANs, VIPs, native boot identity, uptime and explicit tri-state interlocks. Every required interlock must be known false. Maintenance, upgrades, any configured HA, another repair or shutdown stop collection and clear volatile confirmation. Configuration is compiled on every snapshot, and its effective hash plus boot identity defines the measurement context. Changing this context resets the peer baseline and policy episode while preserving durable budgets.
 
 A second snapshot follows collection. Immediately before actions, the coordinator checks the same context again, including after evidence capture. Disable, mode, peer, interface or boot changes inhibit stale proposals. Wall-clock and monotonic-clock divergence greater than five seconds resets confirmation. The existing journal retains conservative action reservations.
 
-The observation phase has a 25-second cooperative deadline checked between each bounded operation. It stops remaining collectors after an overrun and never calls the policy with a partially timed-out cycle. It cannot preempt a blocking adapter: native snapshot/log access must run behind suitable bounded adapters, and a functioning kernel is still required. Service-start adapters must not reuse the finite diagnostic descendant reaper. A future daemon must provide lifecycle locking, scheduling, status reporting and signal handling in addition to this cycle.
+The observation phase has a 25-second cooperative deadline checked between each bounded operation. It stops remaining collectors after an overrun and never calls the policy with a partially timed-out cycle. Native snapshot and log access use separate workers. This is not a hard wall-clock bound when the kernel cannot schedule or terminate a blocked process. Service-start adapters must not reuse the finite diagnostic descendant reaper.
+
+The monitor daemon owns a separate exclusive supervisor lease, schedules nominal 15-second cycles without catch-up bursts and emits sanitized syslog messages only when status changes. TERM/INT inhibit actions and stop the loop. The rc script uses native `daemon` without automatic respawn, permits up to 35 seconds for graceful stop and reports failure if the process persists. It never force-kills an uncertain service PID. A saved configuration can therefore report an apply failure separately from successful persistence.
+
+`LogWorker` keeps the file descriptor in a persistent child process. Requests carry a nonce, have a two-second deadline and accept only bounded tri-state replies. Errors terminate the worker; a replacement starts with a new log baseline. Its termination cannot overcome kernel-uninterruptible I/O. `ServiceState` creates the initial private journal only when the state directory is absent; an existing damaged or missing journal fails closed. Deinstallation preserves the state directory and budget.
 
 ## Bounded retry-log sampling
 

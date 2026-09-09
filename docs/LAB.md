@@ -47,3 +47,13 @@ The reboot fixture refuses to overwrite an existing test directory. It keeps its
 The existing Netgate account now works in the in-app browser. An existing fulfilled AMD64 ISO installer order was reopened using its fresh emailed access link, without a new order or account. Its Download Now action is blocked by the browser, and a direct request returned HTTP 404. No matching local download was found. The user has been asked to download it through their browser and provide the local path. No browser barrier or CAPTCHA was bypassed, and no unofficial image was substituted.
 
 Sources: [official VM image directory and checksums](https://download.freebsd.org/releases/VM-IMAGES/15.0-RELEASE/amd64/Latest/), [FreeBSD BASIC-CLOUDINIT build configuration](https://github.com/freebsd/freebsd-src/blob/releng/15.0/release/tools/basic-cloudinit.conf), [native nuageinit configuration](https://github.com/freebsd/freebsd-src/blob/releng/15.0/libexec/nuageinit/nuageinit.7), [QEMU user-network restrictions](https://www.qemu.org/docs/master/system/invocation.html), [Netgate installer](https://shop.netgate.com/products/netgate-installer).
+
+## Service lifecycle fixture
+
+On the isolated FreeBSD guest only, with the existing `/root/RECOVERY_GUARD_ISOLATED_LAB` marker and PHP CLI/filter/pcntl/posix/XML extensions:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/service-lab.php
+```
+
+The test retains a unique evidence directory under `/root/recovery-guard-service-*`. It uses the shipped rc script with a private PID file and synthetic entrypoint; actual ServiceLoop, ServiceState and LogWorker classes are exercised. Its cleanup stops the fixture daemon and worker. It does not install the package, write a pfSense configuration or execute firewall actions. Twenty-four checks pass; see the separate validation record for build hashes. Do not substitute this result for actual pfSense install, upgrade, deinstall or native daemon testing.
