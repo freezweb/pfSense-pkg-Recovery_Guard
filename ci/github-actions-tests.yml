@@ -1,0 +1,26 @@
+name: Recovery Guard tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Syntax
+        run: find src tests examples -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Policy and journal integration
+        run: php tests/integration.php
+      - name: Adversarial FastCGI transport
+        run: php tests/fastcgi.php
+      - name: Simulated incident
+        run: php examples/replay-outage.php

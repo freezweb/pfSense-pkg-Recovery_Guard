@@ -1,0 +1,10 @@
+/vendor/
+/build/
+/artifacts/
+/var/
+/tests/*-result.txt
+*.key
+*.pem
+*.p12
+*.ppk
+.env*
