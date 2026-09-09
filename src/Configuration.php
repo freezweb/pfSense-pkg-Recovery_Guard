@@ -17,7 +17,7 @@ final class Configuration
         if (!is_string($logical) || !is_string($text) || strlen($text) > 512) throw new \InvalidArgumentException('Invalid local network settings');
         $peers = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
         if (count($peers) > 8 || count(array_unique($peers)) !== count($peers)) throw new \InvalidArgumentException('Specify at most eight distinct peers');
-        $result = ['enabled' => $enabled, 'maintenance' => $maintenance, 'mode' => $mode,
+        $result = ['enabled' => $enabled, 'maintenance' => $maintenance, 'notifications' => self::flag($settings, 'notifications'), 'mode' => $mode,
             'interface' => $logical, 'device' => null, 'link_device' => null, 'source' => null, 'prefix' => null, 'peers' => $peers];
         if (!$enabled && $logical === '' && $peers === []) return $result;
         if (!preg_match('/\A(?:lan|opt[0-9]+)\z/D', $logical) || !isset($interfaces[$logical]) || !is_array($interfaces[$logical])) {
@@ -62,7 +62,7 @@ final class Configuration
     public static function native(array $compiled): array
     {
         $native = ['version' => '1', 'mode' => $compiled['mode'], 'interface' => $compiled['interface'], 'peers' => implode("\n", $compiled['peers'])];
-        foreach (['enabled', 'maintenance'] as $flag) if ($compiled[$flag]) $native[$flag] = 'on';
+        foreach (['enabled', 'maintenance', 'notifications'] as $flag) if ($compiled[$flag]) $native[$flag] = 'on';
         return $native;
     }
 

@@ -15,6 +15,13 @@ function recovery_guard_save_settings(array $settings): void
     if ($compiled['mode'] !== 'monitor') {
         throw new RuntimeException('Active recovery is not available in this development build.');
     }
+    if ($compiled['notifications']) {
+        require_once(__DIR__ . '/recovery_guard/NotificationSmtp.php');
+        $smtp = config_get_path('notifications/smtp', []);
+        if (!is_array($smtp) || isset($smtp['disable'])) throw new InvalidArgumentException('Enable and configure system SMTP notifications first.');
+        \RecoveryGuard\NotificationSmtp::target(['enabled' => true, 'booting' => false, 'smtp' => $smtp,
+            'hostname' => config_get_path('system/hostname', ''), 'domain' => config_get_path('system/domain', '')]);
+    }
     // "config" is a native XML list tag; use a non-list element for this object.
     $path = 'installedpackages/recoveryguard/settings';
     $previous = config_get_path($path, null);
@@ -60,4 +67,14 @@ function recovery_guard_diagnostics(): array
     require_once(__DIR__ . '/recovery_guard/StateStore.php');
     require_once(__DIR__ . '/recovery_guard/DiagnosticJournal.php');
     return (new \RecoveryGuard\DiagnosticJournal(new \RecoveryGuard\StateStore('/cf/conf/recovery_guard/diagnostics')))->records();
+}
+
+function recovery_guard_notification_status(): array
+{
+    require_once(__DIR__ . '/recovery_guard/StateStore.php');
+    require_once(__DIR__ . '/recovery_guard/NotificationOutbox.php');
+    $state = (new \RecoveryGuard\NotificationOutbox(new \RecoveryGuard\StateStore('/cf/conf/recovery_guard/notifications')))->state();
+    $counts = ['pending' => 0, 'sending' => 0, 'accepted' => 0, 'held' => 0, 'overflow_attempts' => $state['overflow_attempts']];
+    foreach ($state['items'] as $item) $counts[$item['status']]++;
+    return $counts;
 }

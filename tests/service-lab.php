@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 if (PHP_OS !== 'FreeBSD' || getenv('RECOVERY_GUARD_ISOLATED_LAB') !== '1' || !is_file('/root/RECOVERY_GUARD_ISOLATED_LAB')) throw new RuntimeException('Isolated FreeBSD laboratory required');
-foreach (['RecoveryPolicy', 'StateStore', 'ServiceState', 'DiagnosticJournal', 'RebootHandoff', 'LogWorker'] as $name) require __DIR__ . '/../src/' . $name . '.php';
+foreach (['RecoveryPolicy', 'StateStore', 'ServiceState', 'DiagnosticJournal', 'RebootHandoff', 'LogWorker', 'NotificationOutbox'] as $name) require __DIR__ . '/../src/' . $name . '.php';
 use RecoveryGuard\{RecoveryPolicy, StateStore, ServiceState, LogWorker};
 umask(0077);
 $dir = '/root/recovery-guard-service-' . bin2hex(random_bytes(6)); mkdir($dir, 0700);
@@ -19,6 +19,13 @@ $store->exclusive(function ($s) { $state = $s->read(); $state['last_time'] = tim
 $hash = hash_file('sha256', $dir . '/state/state.json');
 ServiceState::initialize($dir . '/state');
 check(hash_file('sha256', $dir . '/state/state.json') === $hash, 'reinstall validates existing budget without rewriting it');
+check(is_file($dir . '/state/notifications/state.json'), 'service initializes persistent notification outbox');
+$mailHash = hash_file('sha256', $dir . '/state/notifications/state.json');
+ServiceState::initialize($dir . '/state');
+check(hash_file('sha256', $dir . '/state/notifications/state.json') === $mailHash, 'reinitialization retains notification checkpoint');
+file_put_contents($dir . '/state/notifications/state.json', 'corrupt-fixture');
+ServiceState::initialize($dir . '/state');
+check(file_get_contents($dir . '/state/notifications/state.json') === 'corrupt-fixture' && hash_file('sha256', $dir . '/state/state.json') === $hash, 'damaged mail queue is retained without disabling monitoring');
 mkdir($dir . '/runtime', 0700);
 $root = realpath(__DIR__ . '/..');
 $fixture = '<?php ' . "\n" . 'umask(0077); $dir=' . var_export($dir, true) . '; $root=' . var_export($root, true) . ';' . <<<'PHP'

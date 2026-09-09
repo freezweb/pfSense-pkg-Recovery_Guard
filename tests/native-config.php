@@ -11,12 +11,28 @@ recovery_guard_save_settings($settings);
 if ($fixture_writes !== 1 || config_get_path('installedpackages/recoveryguard/settings/mode') !== 'monitor' ||
     config_get_path('system/hostname') !== 'unchanged' || config_get_path('installedpackages/otherpackage/keep') !== 'unchanged') throw new RuntimeException('Native save modified unrelated settings');
 $checks++;
+// Notification opt-in validates native settings but never contacts a relay when saving.
+$fixture_config['system']['domain'] = 'example.invalid';
+$fixture_config['notifications']['smtp'] = ['ipaddress' => 'smtp.example.invalid', 'notifyemailaddress' => 'admin@example.invalid'];
+recovery_guard_save_settings(array_replace($settings, ['enabled' => 'on', 'notifications' => 'on']));
+if (!recovery_guard_compile_settings(config_get_path('installedpackages/recoveryguard/settings', []))['notifications']) throw new RuntimeException('Notification opt-in was not saved');
+$checks++;
+$fixture_config['notifications']['smtp']['disable'] = '';
+$savedMail = $fixture_config; $writesMail = $fixture_writes; $rejected = false;
+try { recovery_guard_save_settings(array_replace($settings, ['notifications' => 'on'])); } catch (InvalidArgumentException) { $rejected = true; }
+if (!$rejected || $fixture_config !== $savedMail || $fixture_writes !== $writesMail) throw new RuntimeException('Disabled SMTP accepted notification opt-in');
+$checks++;
+unset($fixture_config['notifications']['smtp']['disable']);
+recovery_guard_save_settings($settings);
+if (isset(config_get_path('installedpackages/recoveryguard/settings', [])['notifications'])) throw new RuntimeException('Notification opt-out was not saved');
+$checks++;
 $saved = $fixture_config;
+$savedWrites = $fixture_writes;
 foreach ([['mode' => 'repair'], ['mode' => 'recover'], ['interface' => 'wan']] as $change) {
     $rejected = false;
     try { recovery_guard_save_settings(array_replace($settings, $change)); }
     catch (RuntimeException | InvalidArgumentException) { $rejected = true; }
-    if (!$rejected || $fixture_config !== $saved || $fixture_writes !== 1) throw new RuntimeException('Rejected configuration was persisted');
+    if (!$rejected || $fixture_config !== $saved || $fixture_writes !== $savedWrites) throw new RuntimeException('Rejected configuration was persisted');
     $checks++;
 }
 foreach ([false, -1, 'throw'] as $failure) {

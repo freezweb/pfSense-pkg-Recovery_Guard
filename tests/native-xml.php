@@ -40,5 +40,12 @@ try {
     $compiled = recovery_guard_compile_settings(config_get_path('installedpackages/recoveryguard/settings', []));
     if (!$compiled['enabled'] || $compiled['mode'] !== 'monitor' || $compiled['maintenance']) throw new RuntimeException('Enabled monitor did not survive native XML');
     $checks++;
+    $fixture_config['system']['domain'] = 'example.invalid';
+    $fixture_config['notifications']['smtp'] = ['ipaddress' => 'smtp.example.invalid', 'notifyemailaddress' => 'admin@example.invalid'];
+    $settings['notifications'] = 'on'; recovery_guard_save_settings($settings);
+    file_put_contents($path, dump_xml_config($fixture_config, 'pfsense'));
+    $fixture_config = parse_xml_config($path, ['pfsense']);
+    if (!recovery_guard_compile_settings(config_get_path('installedpackages/recoveryguard/settings', []))['notifications']) throw new RuntimeException('Notification opt-in did not survive native XML');
+    $checks++;
     echo "PASS: {$checks} original pfSense XML round-trip checks; fixture config only.\n";
 } finally { unlink($path); }

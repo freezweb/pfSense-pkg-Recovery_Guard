@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-foreach (['StateStore', 'NotificationOutbox', 'NotificationDelivery', 'NotificationMessage', 'NotificationSmtp'] as $name) require __DIR__ . '/../src/' . $name . '.php';
-use RecoveryGuard\{StateStore, NotificationOutbox, NotificationDelivery, NotificationMessage, NotificationSmtp};
+foreach (['StateStore', 'NotificationOutbox', 'NotificationDelivery', 'NotificationMessage', 'NotificationSmtp', 'DiagnosticJournal', 'NativeMailSettings', 'NotificationCycle'] as $name) require __DIR__ . '/../src/' . $name . '.php';
+use RecoveryGuard\{StateStore, NotificationOutbox, NotificationDelivery, NotificationMessage, NotificationSmtp, DiagnosticJournal, NativeMailSettings, NotificationCycle};
 $checks = 0; $directories = [];
 $sync = PHP_OS_FAMILY === 'Windows' ? static function (string $p): void {} : null;
 function check(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
@@ -120,6 +120,45 @@ try {
     }
     $config['smtp']['sslvalidate'] = 'disabled';
     check($sender->send($j) === 'target_changed', 'TLS policy change invalidates queued target');
+    [$q, $s, $dir] = fixture();
+    $q->synchronize($target, [event()]);
+    check($q->state()['items'] === [], 'first history snapshot is a baseline without historical mail');
+    $bytes = file_get_contents($dir . '/state.json');
+    $q->synchronize($target, [event()]);
+    check(file_get_contents($dir . '/state.json') === $bytes, 'unchanged source snapshot does not write');
+    $q->synchronize($target, [event(), event(1)]);
+    check(count($q->state()['items']) === 1, 'new event enters outbox');
+    $q = new NotificationOutbox(new StateStore($dir, $sync));
+    $q->synchronize(str_repeat('b', 64), [event(), event(1)]);
+    check(count($q->state()['items']) === 1 && $q->state()['items'][0]['target'] === $target, 'restart and changed recipient cannot retarget observed history');
+    for ($i = 10; $i < 137; $i++) $q->enqueue($target, event($i));
+    $q->synchronize($target, [event(1), event(2)]);
+    check($q->state()['overflow_attempts'] === 1 && count($q->state()['observed']) === 1, 'overflow leaves new source event unobserved for retry');
+    $job = $q->claim(1000); $q->finish($job['id'], $job['token'], 'accepted', 1000);
+    $q->synchronize($target, [event(1), event(2)]);
+    check(count($q->state()['observed']) === 2 && $q->state()['items'][127]['event'] === event(2), 'source retries after capacity is available without resending evicted accepted history');
+
+    [$q] = fixture(); [$unused, $ds, $dd] = fixture();
+    $ds->exclusive(fn($s) => $s->commit(DiagnosticJournal::emptyState()));
+    $diagnostics = new DiagnosticJournal($ds); $config['smtp']['sslvalidate'] = '';
+    $calls = 0;
+    $cycle = new NotificationCycle($q, $diagnostics, function () use (&$config) { return $config; },
+        function ($job) use (&$calls): string { $calls++; return 'accepted'; }, fn() => 1000);
+    check($cycle->once() === 'idle', 'empty native cycle establishes baseline');
+    $sample = ['time' => 1000, 'uptime' => 1000, 'boot_id' => 'fixture-boot', 'context_id' => str_repeat('a', 64),
+        'maintenance' => false, 'upgrade' => false, 'php_ok' => false, 'critical_link_up' => false, 'local_reachable' => false, 'log_storm' => true];
+    $proposal = ['id' => 'fixture-boot:1000', 'kind' => 'repair_php_fpm'];
+    $diagnostics->capture($proposal, $sample, 'monitor');
+    $diagnostics->outcome($proposal, 'mode_inhibited');
+    check($cycle->once() === 'accepted' && $calls === 1 && $q->state()['items'][0]['event']['result'] === 'mode_inhibited', 'actual diagnostic journal reaches delivery through cycle');
+    check($cycle->once() === 'idle' && $calls === 1, 'unchanged diagnostic outcome never repeats');
+    $config['enabled'] = false;
+    check($cycle->once() === 'disabled' && $calls === 1, 'disabled cycle does not send');
+    $native = ['installedpackages' => ['recoveryguard' => ['settings' => ['enabled' => 'on', 'notifications' => 'on']]],
+        'notifications' => ['smtp' => $config['smtp']], 'system' => ['hostname' => 'firewall', 'domain' => 'example.invalid']];
+    check(NativeMailSettings::project($native, false)['enabled'] === true && NativeMailSettings::project($native, true)['booting'] === true, 'native opt-in and lifecycle projection');
+    unset($native['installedpackages']['recoveryguard']['settings']['notifications']);
+    check(NativeMailSettings::project($native, false)['enabled'] === false, 'mail defaults off');
     echo "PASS: {$checks} durable notification checks; injected senders only, no mail sent.\n";
 } finally {
     foreach ($directories as $dir) { foreach (glob($dir . '/*') as $file) unlink($file); rmdir($dir); }

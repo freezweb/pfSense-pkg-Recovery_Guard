@@ -29,6 +29,7 @@ if ($_POST) {
         'interface' => $_POST['interface'] ?? '', 'peers' => $_POST['peers'] ?? ''];
     if (isset($_POST['maintenance'])) $pconfig['maintenance'] = 'on';
     if (isset($_POST['enabled'])) $pconfig['enabled'] = 'on';
+    if (isset($_POST['notifications'])) $pconfig['notifications'] = 'on';
     try {
         recovery_guard_save_settings($pconfig);
         recovery_guard_service_apply();
@@ -57,8 +58,18 @@ $section->addInput(new Form_Textarea('peers', 'Local peers',
 $section->addInput(new Form_Checkbox('maintenance', 'Maintenance',
     'Suspend recovery during planned maintenance', isset($pconfig['maintenance'])))
     ->setHelp('Pauses fault observation and clears pending failure confirmation.');
+$section->addInput(new Form_Checkbox('notifications', 'Email notifications',
+    'Report new recovery proposals and outcomes using system SMTP settings', isset($pconfig['notifications'])))
+    ->setHelp('Requires monitoring and SMTP settings under System > Advanced > Notifications. The first successful check establishes a history baseline. Delivery attempts are limited; SMTP acceptance does not prove inbox delivery.');
 $form->add($section);
 print($form);
+try {
+    $mail = recovery_guard_notification_status();
+    echo '<p>' . htmlspecialchars(sprintf(gettext('Notifications: %d pending, %d awaiting a receipt, %d accepted by SMTP, %d held; %d queue overflow attempts.'),
+        $mail['pending'], $mail['sending'], $mail['accepted'], $mail['held'], $mail['overflow_attempts']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>';
+} catch (Throwable) {
+    print_info_box(gettext('Notification status is unavailable or currently in use. Monitoring does not depend on mail delivery.'), 'warning');
+}
 ?>
 <div class="panel panel-default">
   <div class="panel-heading"><h2 class="panel-title"><?=gettext('Recent diagnostic records')?></h2></div>

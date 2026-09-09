@@ -17,5 +17,7 @@ final class ServiceState
         if (!(new RecoveryPolicy())->acceptsState($store->exclusive(fn($s) => $s->read()))) throw new \RuntimeException('Invalid existing budget');
         DiagnosticJournal::initialize($directory . '/diagnostics');
         RebootHandoff::initialize($directory . '/handoff');
+        try { NotificationOutbox::initialize($directory . '/notifications'); }
+        catch (\Throwable) { syslog(LOG_ERR, 'Recovery Guard notifications unavailable; existing outbox was not reset'); }
     }
 }

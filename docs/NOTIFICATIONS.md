@@ -1,6 +1,6 @@
 # Notification delivery
 
-The preview ships tested notification components, but does not yet initialize or fill an outbox, expose a notification opt-in, or start a sender worker. No notification is sent by the preview daemon. Automatic recovery remains disabled.
+The preview includes a default-off email opt-in, outbox initialization, diagnostic event ingestion, a bounded sender and status counts. It uses the firewall's existing SMTP configuration and rejects opt-in if that configuration is missing or disabled. Enabling the checkbox is an explicit request to send new diagnostic events while monitoring runs. Automatic recovery remains disabled. The complete native GUI/worker entrypoint has not yet run on an isolated pfSense guest.
 
 ## Durable attempts
 
@@ -10,7 +10,9 @@ The outbox retains at most 128 records. When full, it removes one oldest accepte
 
 Before calling a transport, a sender durably increments the attempt count and reserves a retry deadline. Backoffs are 60, 300, 900, 3600, 7200, 14400, 21600 and 43200 seconds. At most eight attempts are allowed, including workers lost before a receipt. Each attempt has a new one-use token and a 30-second receipt lease. A stale worker cannot overwrite a newer attempt. Clock reversal inhibits claims and receipts. Ordinary idle polling and duplicate enqueue do not rewrite the journal.
 
-Eight unsuccessful or uncertain attempts leave a held record for diagnosis. Disabling notifications or changing the target also holds the record. There is currently no automatic replay of held records and no user-facing retry control.
+Eight unsuccessful or uncertain attempts leave a held record for diagnosis. A target change detected by the sender also holds the record. Disabled monitoring/notifications pauses the worker without consuming attempts; if the setting changes between claim and the sender's fresh configuration read, that claimed job is held. There is currently no automatic replay of held records and no user-facing retry control.
+
+The version-2 outbox also stores up to 64 observed event hashes independently of destination bindings. The first successful diagnostic snapshot establishes a baseline without sending historical events. Later snapshots atomically enqueue new events and update this checkpoint. An event that cannot fit remains eligible for retry while retained in the rolling diagnostic history. Changing SMTP settings never re-enqueues already observed history. Disabled periods can produce a backlog when re-enabled; events that have fallen out of the 64-record diagnostic history cannot be reconstructed. Version 1 was an uninitialized development component; existing malformed or unsupported state is retained and reported, never automatically reset.
 
 ## Honest results
 
@@ -20,8 +22,12 @@ SMTP cannot guarantee exactly-once delivery: a relay may accept DATA immediately
 
 The adapter follows native relay, authentication and TLS verification settings. It accepts up to sixteen comma-separated plain email addresses; display-name address syntax is not supported. It never copies SMTP errors into the journal because those may expose account or recipient data. A fixed ten-second socket timeout bounds an individual socket wait, not the entire SMTP transaction.
 
-## Required integration
+## Worker and validation limits
 
-Before enabling delivery, implement and validate the explicit opt-in, separate outbox initialization, event production, status/overflow visibility and an independently supervised worker with a total deadline below the receipt lease. Network calls must never delay fault sampling or hold an action-budget lock. Re-read native configuration for each attempt and during service changes. Test timeout termination and process cleanup with a private SMTP fixture, then validate native settings and package lifecycle on an isolated pfSense guest. Reconcile reboot outcomes separately; a handoff receipt is not a boot-completion receipt.
+The supervisor starts at most one finite child per observation cycle and polls its result without waiting for SMTP. FreeBSD `timeout` imposes a 22-second total deadline plus a 0.5-second termination grace, including native XML reading and event ingestion. This timer survives a lost parent. A private worker lock excludes a still-running older child after service restart. Each child sends at most one message and reads current configuration again before transport. The parent never receives SMTP settings and never holds the action-budget lock during mail processing. Corrupt mail state is reported without disabling monitoring.
+
+Ten native process checks cover nonblocking launch, TERM-resistant timeout, malformed output, graceful stop and an actual SIGKILL of the owner. Eighty-two component checks cover the queue, checkpoint, diagnostic-to-delivery cycle and native settings projection. Three actual PEAR SMTP checks use a loopback-only server and establish acceptance, rejection handling and Message-ID/body preservation. They do not test authenticated SMTP or TLS handshakes. The libraries are downloaded only into an ignored private fixture directory, not vendored or installed by the package; pfSense supplies its native PEAR mail stack.
+
+Validate the full native entrypoint, GUI authorization, authenticated/TLS SMTP configuration and package lifecycle on an isolated pfSense guest before release. Kernel or storage hangs beyond signal delivery remain outside the software worker's guarantees. Reconcile reboot outcomes separately; a handoff receipt is not a boot-completion receipt.
 
 References: [pfSense native notification source](https://github.com/pfsense/pfsense/blob/9363ac5b8651a1c7a333180425ce7719070f95f9/src/etc/inc/notices.inc), [PEAR Mail SMTP implementation](https://github.com/pear/Mail/blob/master/Mail/smtp.php).

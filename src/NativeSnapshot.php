@@ -39,7 +39,7 @@ final class NativeSnapshot
         }
         $settings = $config['installedpackages']['recoveryguard']['settings'] ?? [];
         if (!is_array($settings)) throw new \RuntimeException('Invalid package settings');
-        $settings = array_intersect_key($settings, array_flip(['version', 'enabled', 'maintenance', 'mode', 'interface', 'peers']));
+        $settings = array_intersect_key($settings, array_flip(['version', 'enabled', 'maintenance', 'notifications', 'mode', 'interface', 'peers']));
         $vlans = self::records($config, 'vlans', 'vlan', ['vlanif', 'if']);
         $vips = self::records($config, 'virtualip', 'vip', ['mode', 'subnet']);
         $ha = false;

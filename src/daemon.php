@@ -4,12 +4,13 @@ ini_set('display_errors', '0');
 ini_set('memory_limit', '64M');
 umask(0077);
 $log = null;
+$notification = null;
 $exitCode = 0;
 try {
     if (PHP_SAPI !== 'cli' || PHP_OS !== 'FreeBSD' || !function_exists('pcntl_async_signals') ||
         !function_exists('posix_geteuid') || posix_geteuid() !== 0) throw new RuntimeException('Native root CLI required');
     foreach (['RecoveryPolicy', 'StateStore', 'ActionCoordinator', 'Configuration', 'ProbeProcess', 'NativeSnapshot',
-        'NetworkProbe', 'EndpointBaseline', 'FastCgiProbe', 'LogWorker', 'RuntimeSupervisor', 'ServiceLoop', 'ServiceState', 'DiagnosticJournal', 'RebootHandoff'] as $name) require_once __DIR__ . '/' . $name . '.php';
+        'NetworkProbe', 'EndpointBaseline', 'FastCgiProbe', 'LogWorker', 'RuntimeSupervisor', 'ServiceLoop', 'ServiceState', 'DiagnosticJournal', 'RebootHandoff', 'NotificationOutbox', 'NotificationWorker'] as $name) require_once __DIR__ . '/' . $name . '.php';
     $runner = new \RecoveryGuard\ProbeProcess();
     $command = $argv[1] ?? 'run';
     $directory = '/cf/conf/recovery_guard';
@@ -41,6 +42,8 @@ try {
     pcntl_signal(SIGTERM, static function () use (&$stopping): void { $stopping = true; });
     pcntl_signal(SIGINT, static function () use (&$stopping): void { $stopping = true; });
     $log = new \RecoveryGuard\LogWorker();
+    $notification = $compiled['notifications'] ? new \RecoveryGuard\NotificationWorker() : null;
+    $mailStatus = null;
     $fpm = new \RecoveryGuard\FastCgiProbe();
     $runtime = new \RecoveryGuard\RuntimeSupervisor(new \RecoveryGuard\RecoveryPolicy(), $store, $snapshot,
         fn() => $fpm->check(), new \RecoveryGuard\NetworkProbe($runner->run(...)), $log->check(...),
@@ -48,14 +51,21 @@ try {
         static function (): never { throw new RuntimeException('Action adapter unavailable'); }, time(...), hrtimeNanoseconds(...), $diagnostics->outcome(...));
     openlog('recovery_guard', LOG_PID, LOG_DAEMON);
     syslog(LOG_NOTICE, 'Monitor service started');
-    (new \RecoveryGuard\ServiceLoop($runtimeDir))->run($runtime->cycle(...),
+    (new \RecoveryGuard\ServiceLoop($runtimeDir))->run(static function () use ($runtime, $notification, &$mailStatus): array {
+        $status = $runtime->cycle();
+        if ($notification !== null) {
+            try { $newStatus = $notification->tick(); } catch (Throwable) { $newStatus = 'unavailable'; }
+            if ($newStatus !== 'running' && $newStatus !== $mailStatus) { syslog(LOG_NOTICE, 'Notification worker: ' . $newStatus); $mailStatus = $newStatus; }
+        }
+        return $status;
+    },
         static function () use (&$stopping): bool { return $stopping; },
         static function (array $status): void { syslog(LOG_NOTICE, $status['reason'] . ': ' . $status['execution']); });
     syslog(LOG_NOTICE, 'Monitor service stopped');
 } catch (Throwable) {
     fwrite(STDERR, "Recovery Guard service unavailable; check configuration, dependencies and persistent journal.\n");
     $exitCode = 1;
-} finally { if ($log !== null) $log->close(); }
+} finally { if ($notification !== null) $notification->close(); if ($log !== null) $log->close(); }
 
 exit($exitCode);
 
