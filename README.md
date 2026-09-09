@@ -10,6 +10,8 @@ Recovery Guard is an independent recovery supervisor under development for pfSen
 - StateStore: exclusive action ownership, bounded JSON, atomic replacement, file and directory synchronization, restrictive permissions and protection against silently resetting a lost journal.
 - ActionCoordinator: durable reservation before execution, evidence before execution and fresh action interlocks both before and after evidence capture. Active actions are inhibited for configured HA systems until a supported HA strategy has been validated.
 - FastCgiProbe: a real PHP-FPM transaction over its local Unix socket. An unpredictable challenge prevents a stale response from passing. The health script is outside the web document root and needs no administrator password or public endpoint.
+- ProbeProcess and NetworkProbe: finite FreeBSD diagnostic commands with explicit argument arrays, deadlines and output caps; tri-state interface and source-bound IPv4 endpoint observations. Timeout and collection errors remain unknown.
+- EndpointBaseline: a volatile baseline for two to eight explicitly configured peers. All peers must have demonstrated sustained health before their combined failure can become a negative observation. Boot/config changes, supervisor restarts and sampling gaps requalify the baseline.
 
 Default policy: confirm PHP failure for two minutes, then propose one service repair. Escalate only after ten minutes of continuous combined failure and at least three minutes after a confirmed repair attempt. Reserve at most one reboot per 24 hours and one service repair per 15 minutes. A failed WAN ping, an unplugged link or a GUI-only failure with working LAN is not sufficient for a reboot.
 
@@ -22,6 +24,7 @@ PHP CLI 8.1 or newer:
 ~~~console
 php tests/integration.php
 php tests/fastcgi.php
+php tests/network.php
 php examples/replay-outage.php
 ~~~
 
@@ -30,6 +33,8 @@ The integration suite includes the policy suite. Coverage includes concurrent wr
 On Windows, only directory-fsync is simulated. The journal tests have also run on pfSense CE 2.8.1 / PHP 8.3.19 with native file and directory fsync. Actual system restarts and package lifecycle tests require an isolated lab and are not yet proven.
 
 The optional passive check tests/live-probe.php invokes the included challenge through the existing local PHP-FPM socket. It does not install a web route or alter services.
+
+The optional FreeBSD check `php tests/live-platform.php <interface>` reads the OS type and the explicitly named interface. Process timeout and descendant tests are separately guarded in `tests/process-lab.php` and have not yet run in an isolated FreeBSD lab. See [platform adapter constraints](docs/PLATFORM.md).
 
 The example is a simulation with assumed continuous measurements and a simulated repair receipt. It does not establish how quickly a historical incident would have recovered.
 

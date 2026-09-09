@@ -10,10 +10,11 @@ The goal is availability in the official pfSense package repository, not merely 
 - Monitor, service-repair and recovery modes. Mode changes reconfirm faults while retaining conservative reservations. Mode-inhibited proposals can temporarily consume their cooldown; they are never reported as executed actions.
 - Local FastCGI challenge through the PHP-FPM Unix socket. The challenge script resides outside the web document root. No administrator credentials, nginx dependency or public HTTP route are required.
 - Local PHP 8.3 tests and pfSense CE 2.8.1 / PHP 8.3.19 execution with native directory fsync. Real PHP-FPM challenge succeeds; all restart executors used in integration tests are fakes.
+- Network collector and volatile peer-baseline tests pass on Windows and pfSense CE 2.8.1. Native bounded-command adapter successfully reads FreeBSD OS type and an explicitly selected active physical interface. These passive successes do not validate timeout or descendant cleanup.
 
 ## Required before release
 
-1. Implement bounded platform command execution, interface/local-endpoint collectors, known-healthy baselines and bounded error-rate sampling.
+1. Complete and validate platform diagnostics: exercise the implemented process deadline/output limits in an isolated FreeBSD lab, integrate interface/endpoint collectors and peer baselines, validate local routes against native configuration, and implement bounded error-rate sampling. IPv6 endpoint probes are not implemented.
 2. Implement the native daemon, real service/reboot adapters, evidence rotation and durable notification queue. Avoid per-sample flash writes by separating volatile observations from persistently reserved action budgets without weakening crash safety.
 3. Integrate native config.xml storage, GUI, service registration, package install/upgrade/deinstall and explicit state initialization. Preserve budgets through all normal lifecycle changes. Validate HA/CARP behavior; current coordinator suppresses all active actions when HA is configured.
 4. Set up an isolated VM lab. Test command descendants, timeouts, filesystem failures, concurrent supervisors, reboot persistence, service recovery, package lifecycle and supported versions. A production appliance is only used for passive probes and pure tests.

@@ -22,5 +22,7 @@ jobs:
         run: php tests/integration.php
       - name: Adversarial FastCGI transport
         run: php tests/fastcgi.php
+      - name: Network collectors and baseline
+        run: php tests/network.php
       - name: Simulated incident
         run: php examples/replay-outage.php
