@@ -21,9 +21,11 @@ Use an isolated FreeBSD guest with `pkg`, a C compiler, PHP CLI and its filter, 
 ```sh
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes stage
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes check-plist stage-qa package
-pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_7.pkg
+pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-*.pkg
 ```
 
 These commands build and inspect the package without installing it or executing its pfSense registration scripts. They passed on FreeBSD 15.0-p13; the resulting ABI is not a claim of compatibility with another FreeBSD or pfSense release.
+
+Use the actual target's PHP version when preparing its native builder. The inspected pfSense development system port excludes PHP 8.3 and 8.4, despite the generic ports framework's 8.4 default. Local component checks also pass on PHP 8.5.10; the required native pfSense development build and lifecycle tests remain outstanding.
 
 Run `php tests/native-xml.php /path/to/pfsense/xmlparse.inc` after staging to exercise original native XML serialization and parsing on a synthetic configuration. This complements the config API test double; it found a real object/list mismatch that the double could not detect. The tracked CI template pins the parser revision for reproducibility; no upstream parser source is shipped with the package.

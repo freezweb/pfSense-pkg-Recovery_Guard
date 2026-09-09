@@ -41,7 +41,10 @@ A new ordinary free installer checkout is prepared. Current private billing info
 | pfSense CE 2.9.0-DEVELOPMENT | Upstream master version and exact source revision verified; native APIs inspected | Actual isolated installation, runtime, GUI, lifecycle, repair/reboot and package build validation |
 | pfSense CE 2.8.1 | Passive native probes and pure tests on the existing appliance | Isolated supported-release lifecycle and failure tests |
 | FreeBSD 15.0-p13 / PHP 8.3.33 | Isolated component/process/TLS/storage/real guest reboot and port-build evidence | This is a supporting laboratory, not a substitute for either pfSense target |
+| PHP 8.5.10 on Windows | 411 component checks, 69 syntax checks and original pfSense XML round trips pass; official runtime archive hash verified | Native FreeBSD/pfSense execution and dependency versions remain unverified |
 
 The current Netgate development guide names a FreeBSD 16.0-CURRENT builder. Do not transfer or force the FreeBSD 15 lab package onto a different ABI and call it supported; rebuild for the actual target. Recheck development and release versions immediately before the native test run and submission.
+
+The pinned pfSense system port excludes PHP 8.3 and 8.4 even though the generic ports framework defaults to 8.4. Include PHP 8.5 in the development-target audit. The prepared CI template now covers 8.3/8.4/8.5, but remains inactive; local component results do not establish native target compatibility.
 
 Sources: [Netgate package development](https://docs.netgate.com/pfsense/en/latest/development/develop-packages.html), [port layout](https://docs.netgate.com/pfsense/en/latest/development/package-directories.html), [installation media](https://docs.netgate.com/pfsense/en/latest/install/download-installer-image.html).
