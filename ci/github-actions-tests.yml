@@ -17,12 +17,18 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
       - name: Syntax
-        run: find src tests examples -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find src tests examples ports tools \( -name '*.php' -o -name '*.inc' \) -print0 | xargs -0 -n1 php -l
       - name: Policy and journal integration
         run: php tests/integration.php
       - name: Adversarial FastCGI transport
         run: php tests/fastcgi.php
       - name: Network collectors and baseline
         run: php tests/network.php
+      - name: Native configuration and local routes
+        run: php tests/configuration.php
+      - name: Stage complete port and test config adapter
+        run: |
+          php tools/stage-port.php
+          php tests/native-config.php
       - name: Simulated incident
         run: php examples/replay-outage.php

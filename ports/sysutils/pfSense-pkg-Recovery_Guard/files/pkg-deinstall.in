@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Let pfSense remove its package registration and menu entries.
+exec /usr/local/bin/php -f /etc/rc.packages "%%PORTNAME%%" "$2"

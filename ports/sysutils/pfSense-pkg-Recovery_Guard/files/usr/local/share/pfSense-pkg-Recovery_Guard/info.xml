@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pfsensepkgs>
+  <package>
+    <name>Recovery Guard</name>
+    <internal_name>Recovery_Guard</internal_name>
+    <descr>Independent recovery supervisor. Development preview: configuration editor only; monitoring and recovery actions are not yet available.</descr>
+    <version>%%PKGVERSION%%</version>
+    <configurationfile>recovery_guard.xml</configurationfile>
+  </package>
+</pfsensepkgs>

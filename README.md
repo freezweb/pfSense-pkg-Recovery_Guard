@@ -2,7 +2,7 @@
 
 Recovery Guard is an independent recovery supervisor under development for pfSense. It detects an unresponsive PHP-FPM service and corroborating local network failures, attempts a bounded service repair, and reserves a reboot only as a last resort.
 
-**Development status:** tested libraries and a package design, not yet an installable pfSense package. No operating-system restart executor or active daemon is shipped. Integration tests use fake executors. Official pfSense repository inclusion remains a separate, uncompleted goal.
+**Development status:** tested libraries, native configuration editor and a stageable development port. No operating-system restart executor or active daemon is shipped. The editor explicitly reports that monitoring and recovery are unavailable. Integration tests use fake executors. Official pfSense repository inclusion remains a separate, uncompleted goal.
 
 ## Implemented
 
@@ -13,6 +13,8 @@ Recovery Guard is an independent recovery supervisor under development for pfSen
 - FastCgiProbe: a real PHP-FPM transaction over its local Unix socket. An unpredictable challenge prevents a stale response from passing. The health script is outside the web document root and needs no administrator password or public endpoint.
 - ProbeProcess and NetworkProbe: finite FreeBSD diagnostic commands with explicit argument arrays, deadlines and output caps; tri-state interface and source-bound IPv4 endpoint observations. Timeout and collection errors remain unknown.
 - EndpointBaseline: a volatile baseline for two to eight explicitly configured peers. All peers must have demonstrated sustained health before their combined failure can become a negative observation. Boot/config changes, supervisor restarts and sampling gaps requalify the baseline.
+- Configuration: native LAN/VLAN mapping, static IPv4 peers, exclusion of firewall/network/broadcast addresses and upstream interfaces. Local probes check the expected direct route before and after a source-bound `ping -r`; uncertain routes inhibit the observation.
+- Native configuration page and port staging: package-scoped config storage, input validation, failed-save handling and an exact generated install manifest. The current page cannot enable a supervisor or arm recovery. See [port build and validation boundaries](docs/PORT.md).
 
 Default policy: confirm PHP failure for two minutes, then propose one service repair. Escalate only after ten minutes of continuous combined failure and at least three minutes after a confirmed repair attempt. Reserve at most one reboot per 24 hours and one service repair per 15 minutes. A failed WAN ping, an unplugged link or a GUI-only failure with working LAN is not sufficient for a reboot.
 
@@ -26,6 +28,9 @@ PHP CLI 8.1 or newer:
 php tests/integration.php
 php tests/fastcgi.php
 php tests/network.php
+php tests/configuration.php
+php tools/stage-port.php
+php tests/native-config.php
 php examples/replay-outage.php
 ~~~
 
@@ -41,9 +46,9 @@ The example is a simulation with assumed continuous measurements and a simulated
 
 ## Package direction
 
-Planned native port: sysutils/pfSense-pkg-Recovery_Guard, menu Services > Recovery Guard. The supervisor will run separately from PHP-FPM and use native pfSense repair routines. No core-file patches, cloud account, UniFi dependency or network scanning are planned.
+Native port template: sysutils/pfSense-pkg-Recovery_Guard, menu Services > Recovery Guard. The supervisor will run separately from PHP-FPM and use native pfSense repair routines. No core-file patches, cloud account, UniFi dependency or network scanning are planned.
 
-Remaining work includes integrating the collectors, real repair/reboot adapters, durable notification delivery, native configuration and GUI, lifecycle hooks, build manifests, isolated pfSense failure/reboot tests and current development-version validation. See [acceptance tracking](docs/ACCEPTANCE.md).
+Remaining work includes integrating the collectors, real repair/reboot adapters, durable notification delivery, live GUI and lifecycle validation, isolated pfSense failure/reboot tests and current development-version validation. See [acceptance tracking](docs/ACCEPTANCE.md).
 
 A completely frozen kernel cannot run a local supervisor. A supported, separately tested hardware watchdog or independent management controller is required for that class of failure. Merely finding the FreeBSD watchdog interface does not prove hardware-reset support.
 

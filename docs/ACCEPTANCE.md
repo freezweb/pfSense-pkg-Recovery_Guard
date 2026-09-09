@@ -16,11 +16,13 @@ The goal is availability in the official pfSense package repository, not merely 
 
 ## Required before release
 
-1. Complete platform diagnostics: extend native process checks to the supported pfSense guests, integrate interface/endpoint collectors and peer baselines, validate local routes against native configuration, and implement bounded error-rate sampling. IPv6 endpoint probes are not implemented.
+Native configuration development now includes a validated compiler, package-scoped save adapter, preview page, XML metadata, registration scripts and a complete port staging tool. An isolated FreeBSD 15.0-p13 build against pfSense's `devel` ports framework passes `stage`, `check-plist`, `stage-qa` and `package`. This is not installation/GUI/lifecycle validation on pfSense. The preview deliberately cannot enable monitoring or recovery. See [port scope](PORT.md) and [build evidence](VALIDATION.md).
+
+1. Complete platform diagnostics: extend native process checks to supported pfSense guests, integrate the tested native configuration/local-route validation with collectors and peer baselines, and implement bounded error-rate sampling. IPv6 endpoint probes are not implemented.
 2. Implement the native daemon, real service/reboot adapters, evidence rotation and durable notification queue. Integrate the implemented volatile-observation/durable-budget separation and verify total runtime I/O, including filesystem metadata and eventual notification/evidence writes.
-3. Integrate native config.xml storage, GUI, service registration, package install/upgrade/deinstall and explicit state initialization. Preserve budgets through all normal lifecycle changes. Validate HA/CARP behavior; current coordinator suppresses all active actions when HA is configured.
+3. Validate native config.xml storage and GUI on pfSense; implement service registration, install/upgrade/deinstall lifecycle and explicit state initialization beyond the current registration templates. Preserve budgets through all normal lifecycle changes. Validate HA/CARP behavior; current coordinator suppresses all active actions when HA is configured.
 4. Extend the established isolated FreeBSD VM lab to actual pfSense guests. Complete storage-failure, concurrent-supervisor, service-recovery, package-lifecycle and supported-version tests. A production appliance is only used for passive probes and pure tests.
-5. Test the current pfSense development version, as required by Netgate, in addition to CE 2.8.1 compatibility. Build a staged FreeBSD port and verify package manifests, permissions and dependency resolution.
+5. Test the current pfSense development version, as required by Netgate, in addition to CE 2.8.1 compatibility. Repeat the successful preview port build for the complete package in supported pfSense build environments, including runtime dependencies and permissions.
 6. Review source and generated support artifacts for secrets, private topology, personal data and unsafe defaults. Publish only this isolated repository, never its parent workspace.
 7. Publish the generic source, submit the complete port to `pfsense/FreeBSD-ports`, address maintainer review and verify actual official package availability.
 

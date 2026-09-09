@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<packagegui>
+  <name>Recovery Guard</name>
+  <title>Services: Recovery Guard</title>
+  <description>Independent recovery supervisor configuration</description>
+  <donotsave>true</donotsave>
+  <include_file>/usr/local/pkg/recovery_guard.inc</include_file>
+  <menu>
+    <name>Recovery Guard</name>
+    <section>Services</section>
+    <url>/services_recovery_guard.php</url>
+  </menu>
+</packagegui>
