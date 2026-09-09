@@ -32,7 +32,7 @@ Netgate decides whether to accept a package. No PR has been submitted yet. The e
 
 The current GitHub OAuth credential lacks the workflow scope. Therefore the prepared GitHub Actions definition is tracked as `ci/github-actions-tests.yml`, not installed as an active workflow. Source publication and direct test execution do not depend on this permission. Do not claim hosted CI has run until a real workflow run has been verified.
 
-A new ordinary free installer checkout is prepared. Current private billing information has been verified against current owner records; no personal records are published here. The remaining checkout step requires explicit confirmation to transmit the details and accept Netgate's purchase/evaluation/license terms. That confirmation has been requested and is pending. No new order or downloaded image is claimed. Real SMTP encryption/authentication tests now pass in the private FreeBSD laboratory; these do not replace the required native pfSense entrypoint tests.
+The user explicitly approved the free installer checkout on 2026-09-09. The order completed for one AMD64 ISO installer at USD 0.00; Netgate confirmed it in the browser and by email. The fresh download page advertises netgate-installer-v1.2-RELEASE-amd64.iso.gz (327 MB), but Chrome blocks its delivery redirect with ERR_BLOCKED_BY_CLIENT. No local installer or matching checksum has been verified. User completion of the browser download is required; the browser restriction has not been bypassed. Private order and billing records are kept outside this repository. Real SMTP encryption/authentication tests pass in the private FreeBSD laboratory; these do not replace the required native pfSense entrypoint tests.
 
 ## Target versions revalidated on 2026-09-09
 
