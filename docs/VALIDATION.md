@@ -79,3 +79,13 @@ On 2026-09-09, both production and lab variants of the C repair controller compi
 The 26-file development port `0.1.0.a1_4` passes native compile, `stage`, `check-plist`, `stage-qa` and `package`. The installed helper is a stripped FreeBSD ELF executable with mode 0555, not setuid. Its production command parser rejects a non-allowlisted argument without invoking repair. Package SHA256: `d43a440684cd57852c81b57222df40183a46e6ff87fa40d13d992635a18efb7e`. Ten staged native-adapter/manifest checks pass locally and in the guest.
 
 This demonstrates real service-daemon preservation and functional probing on plain FreeBSD. It does not establish the entire pfSense restart routine, upgrade exclusion, native reboot handoff or supported pfSense package lifecycle. Automatic repair/reboot remains disabled in the shipped daemon and editor. No production service was changed.
+
+## Durable diagnostic journal and monitor integration
+
+On 2026-09-09, fifteen new diagnostic/coordinator checks pass on Windows PHP 8.3.32 (directory fsync injected) and isolated FreeBSD 15.0-p13 / PHP 8.3.33 (native fsync). The cases cover field whitelisting, duplicate/conflicting evidence, immutable outcomes, bounded 64-record retention, schema corruption, fresh-reader persistence, monitor-only records, ordering before fake execution, ambiguous capture and outcome commits, and unknown executor results. The unchanged 76 integration checks and 27 Windows/31 FreeBSD runtime checks also pass.
+
+The updated native service suite passes 24 cases after initialization was extended to validate/provision the separate evidence journal; retained fixture path `/root/recovery-guard-service-c4b1c30dcf25`. Ten native-adapter/manifest and four original-XML-parser checks pass locally. PHP syntax checks pass throughout the source and native templates. The UI history and authenticated export have been implemented but not browser-validated on pfSense.
+
+The 27-file port `0.1.0.a1_5` passes native compile, `stage`, `check-plist`, `stage-qa` and `package`. Package SHA256: `9e14d011ebb422a7e55dac530b5d2e9e1a8c151eb68867a0db423d858cf56236`. Source archive SHA256: `261d38bd3ff52f448f590f3d3e08da2c86ff904e30691ba2ad7c80a0a7becca9`.
+
+The Netgate order page remains accessible, but the ordinary download still produced no local installer file in this phase. Real pfSense installation/upgrade/deinstallation, GUI authorization, automatic repair and reboot handoff remain outstanding. No production setting or service changed.

@@ -54,3 +54,10 @@ function recovery_guard_service_apply(bool $deinstall = false): void
     // A finite-command descendant reaper must never wrap a persistent service start.
     if (mwexec('/usr/local/etc/rc.d/recovery_guard.sh start') !== 0) throw new RuntimeException('Settings saved, but Recovery Guard could not start.');
 }
+
+function recovery_guard_diagnostics(): array
+{
+    require_once(__DIR__ . '/recovery_guard/StateStore.php');
+    require_once(__DIR__ . '/recovery_guard/DiagnosticJournal.php');
+    return (new \RecoveryGuard\DiagnosticJournal(new \RecoveryGuard\StateStore('/cf/conf/recovery_guard/diagnostics')))->records();
+}

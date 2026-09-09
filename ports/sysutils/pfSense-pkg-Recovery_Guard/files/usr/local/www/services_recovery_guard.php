@@ -8,6 +8,20 @@
 ##|-PRIV
 require('guiconfig.inc');
 require_once('/usr/local/pkg/recovery_guard.inc');
+if (isset($_GET['download']) && !$_POST) {
+    header('Cache-Control: no-store');
+    try {
+        $bytes = json_encode(['version' => 1, 'records' => recovery_guard_diagnostics()], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename="recovery-guard-diagnostics.json"');
+        echo $bytes;
+    } catch (Throwable) {
+        http_response_code(503);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo gettext('Recovery Guard diagnostics are unavailable.');
+    }
+    exit;
+}
 $input_errors = [];
 $pconfig = config_get_path('installedpackages/recoveryguard/settings', []);
 if ($_POST) {
@@ -45,4 +59,40 @@ $section->addInput(new Form_Checkbox('maintenance', 'Maintenance',
     ->setHelp('Pauses fault observation and clears pending failure confirmation.');
 $form->add($section);
 print($form);
+?>
+<div class="panel panel-default">
+  <div class="panel-heading"><h2 class="panel-title"><?=gettext('Recent diagnostic records')?></h2></div>
+  <div class="panel-body">
+    <p><?=gettext('The latest 64 confirmed action proposals are retained. Monitoring-only proposals never execute a repair. No recorded outcome means completion is unconfirmed; records are not replayed.')?></p>
+<?php
+try {
+    $records = array_reverse(recovery_guard_diagnostics());
+    if (!$records) {
+        echo '<p>' . gettext('No action proposals have been recorded.') . '</p>';
+    } else {
+        $results = ['pending' => gettext('No outcome recorded'), 'mode_inhibited' => gettext('Monitoring only'),
+            'interlock_inhibited' => gettext('Inhibited by maintenance or configuration'), 'completed' => gettext('Completed'),
+            'failed' => gettext('Failed'), 'timeout_cleaned' => gettext('Timed out; process cleanup verified'), 'unknown' => gettext('Completion unknown')];
+        $tri = static fn($v) => $v === null ? gettext('Unknown') : ($v ? gettext('Yes') : gettext('No'));
+        echo '<div class="table-responsive"><table class="table table-striped table-condensed"><thead><tr>';
+        foreach (['Time', 'Proposal', 'Outcome', 'PHP responding', 'Link up', 'LAN reachable', 'Log storm'] as $label) echo '<th>' . gettext($label) . '</th>';
+        echo '</tr></thead><tbody>';
+        foreach ($records as $record) {
+            $s = $record['sample'];
+            $cells = [date('Y-m-d H:i:s T', $s['time']), $record['kind'] === 'reboot' ? gettext('Reboot') : gettext('Repair PHP-FPM'),
+                $results[$record['result']], $tri($s['php_ok']), $tri($s['critical_link_up']), $tri($s['local_reachable']), $tri($s['log_storm'])];
+            echo '<tr>';
+            foreach ($cells as $cell) echo '<td>' . htmlspecialchars($cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+    echo '<a class="btn btn-default" href="services_recovery_guard.php?download=1">' . gettext('Download diagnostics') . '</a>';
+} catch (Throwable) {
+    print_info_box(gettext('Diagnostic history is unavailable or currently in use. Existing records have not been reset.'), 'warning');
+}
+?>
+  </div>
+</div>
+<?php
 include('foot.inc');

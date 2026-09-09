@@ -9,7 +9,7 @@ try {
     if (PHP_SAPI !== 'cli' || PHP_OS !== 'FreeBSD' || !function_exists('pcntl_async_signals') ||
         !function_exists('posix_geteuid') || posix_geteuid() !== 0) throw new RuntimeException('Native root CLI required');
     foreach (['RecoveryPolicy', 'StateStore', 'ActionCoordinator', 'Configuration', 'ProbeProcess', 'NativeSnapshot',
-        'NetworkProbe', 'EndpointBaseline', 'FastCgiProbe', 'LogWorker', 'RuntimeSupervisor', 'ServiceLoop', 'ServiceState'] as $name) require_once __DIR__ . '/' . $name . '.php';
+        'NetworkProbe', 'EndpointBaseline', 'FastCgiProbe', 'LogWorker', 'RuntimeSupervisor', 'ServiceLoop', 'ServiceState', 'DiagnosticJournal'] as $name) require_once __DIR__ . '/' . $name . '.php';
     $runner = new \RecoveryGuard\ProbeProcess();
     $command = $argv[1] ?? 'run';
     $directory = '/cf/conf/recovery_guard';
@@ -32,6 +32,8 @@ try {
     $compiled = \RecoveryGuard\Configuration::compile($initial['settings'], $initial['interfaces'], $initial['vlans'], $initial['virtual_ips']);
     if (!$compiled['enabled']) exit($command === 'enabled' ? 2 : 0);
     if (!(new \RecoveryGuard\RecoveryPolicy())->acceptsState($store->exclusive(fn($s) => $s->read()))) throw new RuntimeException('Invalid service journal');
+    $diagnostics = new \RecoveryGuard\DiagnosticJournal(new \RecoveryGuard\StateStore($directory . '/diagnostics'));
+    $diagnostics->records();
     if ($command === 'enabled') exit(0);
     $runtimeDir = '/var/run/recovery_guard';
     if (!file_exists($runtimeDir) && !mkdir($runtimeDir, 0700)) throw new RuntimeException('Cannot create runtime directory');
@@ -42,8 +44,8 @@ try {
     $fpm = new \RecoveryGuard\FastCgiProbe();
     $runtime = new \RecoveryGuard\RuntimeSupervisor(new \RecoveryGuard\RecoveryPolicy(), $store, $snapshot,
         fn() => $fpm->check(), new \RecoveryGuard\NetworkProbe($runner->run(...)), $log->check(...),
-        static function (): never { throw new RuntimeException('Evidence adapter unavailable'); },
-        static function (): never { throw new RuntimeException('Action adapter unavailable'); }, time(...), hrtimeNanoseconds(...));
+        $diagnostics->capture(...),
+        static function (): never { throw new RuntimeException('Action adapter unavailable'); }, time(...), hrtimeNanoseconds(...), $diagnostics->outcome(...));
     openlog('recovery_guard', LOG_PID, LOG_DAEMON);
     syslog(LOG_NOTICE, 'Monitor service started');
     (new \RecoveryGuard\ServiceLoop($runtimeDir))->run($runtime->cycle(...),

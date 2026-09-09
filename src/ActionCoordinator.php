@@ -16,6 +16,7 @@ final class ActionCoordinator
         private \Closure $captureEvidence,
         private \Closure $executor,
         private \Closure $clock,
+        private ?\Closure $recordOutcome = null,
     ) {}
 
     /** Invalidate a measurement episode without erasing durable action budgets. */
@@ -29,8 +30,9 @@ final class ActionCoordinator
         if (!in_array($mode, ['monitor', 'repair', 'recover'], true)) {
             throw new \InvalidArgumentException('Unknown operating mode');
         }
+        $captured = null;
         try {
-            return $this->store->exclusive(function (StateStore $store) use ($sample, $mode): array {
+            return $this->store->exclusive(function (StateStore $store) use ($sample, $mode, &$captured): array {
                 // Re-read under the action lock even when observations are cached. Another
                 // supervisor may have reserved an action or the journal may have disappeared.
                 $disk = $store->read();
@@ -58,6 +60,9 @@ final class ActionCoordinator
                 if ($proposal === null) return $result;
                 // Disabled actions consume their reservation conservatively, without fake receipts.
                 if ($mode === 'monitor' || ($proposal['kind'] === 'reboot' && $mode !== 'recover')) {
+                    ($this->captureEvidence)($proposal, $sample, $mode);
+                    $captured = $proposal;
+                    $this->record($proposal, 'mode_inhibited'); $captured = null;
                     $result['execution'] = 'mode_inhibited';
                     return $result;
                 }
@@ -67,8 +72,10 @@ final class ActionCoordinator
                     return $result;
                 }
                 // Capture failure blocks the action; it never skips straight to a reboot.
-                ($this->captureEvidence)($proposal, $sample);
+                ($this->captureEvidence)($proposal, $sample, $mode);
+                $captured = $proposal;
                 if (!$this->clearInterlocks(($this->freshInterlocks)(), $sample)) {
+                    $this->record($proposal, 'interlock_inhibited'); $captured = null;
                     $result['execution'] = 'interlock_inhibited';
                     return $result;
                 }
@@ -78,6 +85,7 @@ final class ActionCoordinator
                     throw new \RuntimeException('Executor did not return a verifiable completion receipt');
                 }
                 $result['execution'] = $receipt['outcome'];
+                $this->record($proposal, $receipt['outcome']); $captured = null;
                 $result['executes_actions'] = true;
                 if ($proposal['kind'] === 'repair_php_fpm') {
                     $now = ($this->clock)();
@@ -88,11 +96,19 @@ final class ActionCoordinator
                 return $result;
             });
         } catch (\Throwable $error) {
+            if ($captured !== null) {
+                try { $this->record($captured, 'unknown'); } catch (\Throwable) {}
+            }
             // Includes uncertain rename/fsync and executor receipts. Never reuse cached
             // fault confirmation across a failed transaction.
             $this->observations = $this->journal = null;
             throw $error;
         }
+    }
+
+    private function record(array $proposal, string $result): void
+    {
+        if ($this->recordOutcome !== null) ($this->recordOutcome)($proposal, $result);
     }
 
     private function persist(StateStore $store, array $state): void

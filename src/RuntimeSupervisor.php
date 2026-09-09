@@ -23,6 +23,7 @@ final class RuntimeSupervisor
         \Closure $executor,
         private \Closure $wallClock,
         private \Closure $monotonicClock,
+        ?\Closure $recordOutcome = null,
     ) {
         $this->baseline = new EndpointBaseline();
         $this->coordinator = new ActionCoordinator($policy, $store, function (): array {
@@ -32,7 +33,7 @@ final class RuntimeSupervisor
             $checks['boot_id'] = $fresh['boot_id'];
             $checks['context_id'] = $fresh['context'];
             return $checks;
-        }, $captureEvidence, $executor, $wallClock);
+        }, $captureEvidence, $executor, $wallClock, $recordOutcome);
     }
 
     /** One cycle; caller schedules subsequent calls. Exceptions inhibit and erase volatile confirmation. */
