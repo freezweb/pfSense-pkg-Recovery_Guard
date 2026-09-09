@@ -16,12 +16,12 @@ Sources: [Netgate package development](https://docs.netgate.com/pfsense/en/lates
 
 ## Reproduce the laboratory build
 
-Use an isolated FreeBSD guest with `pkg`, PHP CLI and its filter, pcntl, posix and XML extensions, and the pfSense `devel` ports framework. With these dependencies already installed, the framework's `Mk`, `Templates`, `Tools` and `ports-mgmt/pkg` directories were sufficient, exported from the exact revision in [VALIDATION.md](VALIDATION.md). Export with `git -c core.autocrlf=false archive` when preparing the framework on Windows. Stage the port into a separate unused directory, then copy it into the framework's `sysutils` directory and run from that port directory:
+Use an isolated FreeBSD guest with `pkg`, a C compiler, PHP CLI and its filter, pcntl, posix and XML extensions, and the pfSense `devel` ports framework. With these dependencies already installed, the framework's `Mk`, `Templates`, `Tools` and `ports-mgmt/pkg` directories were sufficient, exported from the exact revision in [VALIDATION.md](VALIDATION.md). Export with `git -c core.autocrlf=false archive` when preparing the framework on Windows. Stage the port into a separate unused directory, then copy it into the framework's `sysutils` directory and run from that port directory:
 
 ```sh
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes stage
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes check-plist stage-qa package
-pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_3.pkg
+pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_4.pkg
 ```
 
 These commands build and inspect the package without installing it or executing its pfSense registration scripts. They passed on FreeBSD 15.0-p13; the resulting ABI is not a claim of compatibility with another FreeBSD or pfSense release.

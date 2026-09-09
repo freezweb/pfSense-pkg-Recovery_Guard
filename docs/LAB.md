@@ -57,3 +57,14 @@ RECOVERY_GUARD_ISOLATED_LAB=1 php tests/service-lab.php
 ```
 
 The test retains a unique evidence directory under `/root/recovery-guard-service-*`. It uses the shipped rc script with a private PID file and synthetic entrypoint; actual ServiceLoop, ServiceState and LogWorker classes are exercised. Its cleanup stops the fixture daemon and worker. It does not install the package, write a pfSense configuration or execute firewall actions. Twenty-four checks pass; see the separate validation record for build hashes. Do not substitute this result for actual pfSense install, upgrade, deinstall or native daemon testing.
+
+## Repair controller and private FPM test
+
+Run only in the isolated FreeBSD guest with the existing marker and PHP-FPM binary:
+
+```sh
+cc -std=c11 -Wall -Wextra -Werror -O2 -DRECOVERY_GUARD_LAB native/repair-controller.c -o /root/repair-controller-lab
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/repair-controller-lab.php /root/repair-controller-lab
+```
+
+The lab binary accepts synthetic commands. The production port never defines `RECOVERY_GUARD_LAB`, and its helper only accepts the fixed native repair operation. The test starts one real private PHP-FPM instance on a Unix socket and stops it afterwards. Its isolated root pool permits access to the private fixture tree; it is not a proposed production FPM configuration. Sixteen checks pass. Process-failure fixtures self-expire after eight seconds when deliberately testing a killed controller. Retained evidence is under `/root/recovery-guard-repair-*`.

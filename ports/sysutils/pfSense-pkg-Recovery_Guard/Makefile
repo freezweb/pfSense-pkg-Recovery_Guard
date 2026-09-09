@@ -1,6 +1,6 @@
 PORTNAME=	pfSense-pkg-Recovery_Guard
 PORTVERSION=	0.1.0.a1
-PORTREVISION=	3
+PORTREVISION=	4
 CATEGORIES=	sysutils
 MASTER_SITES=	# empty
 DISTFILES=	# empty
@@ -15,7 +15,6 @@ LICENSE_FILE=	${FILESDIR}/LICENSE
 USES=		php:cli
 USE_PHP=	filter pcntl posix xml
 
-NO_BUILD=	yes
 NO_MTREE=	yes
 SUB_FILES=	pkg-install pkg-deinstall
 SUB_LIST=	PORTNAME=${PORTNAME}
@@ -23,7 +22,12 @@ SUB_LIST=	PORTNAME=${PORTNAME}
 do-extract:
 	${MKDIR} ${WRKSRC}
 
+do-build:
+	${CC} ${CFLAGS} -std=c11 -Wall -Wextra ${FILESDIR}/repair-controller.c ${LDFLAGS} -o ${WRKSRC}/recovery-guard-repair
+
 do-install:
+	${MKDIR} ${STAGEDIR}${PREFIX}/libexec
+	${INSTALL_PROGRAM} ${WRKSRC}/recovery-guard-repair ${STAGEDIR}${PREFIX}/libexec/
 	${MKDIR} ${STAGEDIR}${PREFIX}/pkg/recovery_guard ${STAGEDIR}${PREFIX}/www ${STAGEDIR}${DATADIR}
 	${MKDIR} ${STAGEDIR}${PREFIX}/etc/rc.d
 	${INSTALL_SCRIPT} ${FILESDIR}${PREFIX}/etc/rc.d/recovery_guard.sh ${STAGEDIR}${PREFIX}/etc/rc.d/

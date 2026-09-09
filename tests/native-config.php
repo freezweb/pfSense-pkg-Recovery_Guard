@@ -27,7 +27,8 @@ foreach ([false, -1, 'throw'] as $failure) {
     $checks++;
 }
 $plist = file($port . '/pkg-plist', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-$actual = [];
+$actual = ['libexec/recovery-guard-repair']; // Built from the canonical C source, not a prebuilt binary.
+if (!is_file($port . '/files/repair-controller.c') || !str_contains(file_get_contents($port . '/Makefile'), '${CC} ${CFLAGS}')) throw new RuntimeException('Native controller build input missing');
 $prefix = $port . '/files/usr/local/';
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($prefix, FilesystemIterator::SKIP_DOTS)) as $file) if ($file->isFile()) $actual[] = str_replace('\\', '/', substr($file->getPathname(), strlen($prefix)));
 sort($actual);

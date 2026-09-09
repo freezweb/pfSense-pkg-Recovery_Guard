@@ -21,7 +21,8 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($template,
 }
 foreach (glob($root . '/src/*.php') as $file) $copy($file, $port . '/files/usr/local/pkg/recovery_guard/' . basename($file));
 $copy($root . '/LICENSE', $port . '/files/LICENSE');
-$plist = [];
+$copy($root . '/native/repair-controller.c', $port . '/files/repair-controller.c');
+$plist = ['libexec/recovery-guard-repair'];
 $prefix = $port . '/files/usr/local/';
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($prefix, FilesystemIterator::SKIP_DOTS)) as $file) {
     if ($file->isFile()) $plist[] = str_replace('\\', '/', substr($file->getPathname(), strlen($prefix)));
