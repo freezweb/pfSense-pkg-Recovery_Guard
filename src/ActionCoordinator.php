@@ -6,6 +6,9 @@ namespace RecoveryGuard;
 /** Coordinates a policy with a durable journal and bounded platform adapters. */
 final class ActionCoordinator
 {
+    private ?array $observations = null;
+    private ?array $journal = null;
+
     public function __construct(
         private RecoveryPolicy $policy,
         private StateStore $store,
@@ -20,50 +23,76 @@ final class ActionCoordinator
         if (!in_array($mode, ['monitor', 'repair', 'recover'], true)) {
             throw new \InvalidArgumentException('Unknown operating mode');
         }
-        return $this->store->exclusive(function (StateStore $store) use ($sample, $mode): array {
-            $state = $store->read();
-            if (!$this->policy->acceptsState($state)) throw new \RuntimeException('Invalid recovery journal');
-            if ($state['operating_mode'] !== $mode) {
-                // Reconfirm faults after mode changes; retain all conservative action budgets.
-                $state['episode'] = null;
-                $state['operating_mode'] = $mode;
-            }
-            $result = $this->policy->step($state, $sample);
-            $proposal = $result['proposal'];
-            $store->commit($result['state']);
-            $result['execution'] = 'none';
-            if ($proposal === null) return $result;
-            // Disabled actions consume their reservation conservatively, without fake receipts.
-            if ($mode === 'monitor' || ($proposal['kind'] === 'reboot' && $mode !== 'recover')) {
-                $result['execution'] = 'mode_inhibited';
+        try {
+            return $this->store->exclusive(function (StateStore $store) use ($sample, $mode): array {
+                // Re-read under the action lock even when observations are cached. Another
+                // supervisor may have reserved an action or the journal may have disappeared.
+                $disk = $store->read();
+                if (!$this->policy->acceptsState($disk)) throw new \RuntimeException('Invalid recovery journal');
+                if ($this->journal !== $disk || $this->observations === null) {
+                    $state = $disk;
+                    // Process restart or a competing writer requires fresh fault confirmation.
+                    // Persistent action budgets survive; old episode progress is not replayed.
+                    $state['episode'] = null;
+                } else {
+                    $state = $this->observations;
+                }
+                $this->journal = $disk;
+                $modeChanged = $state['operating_mode'] !== $mode;
+                if ($modeChanged) {
+                    // Reconfirm faults after mode changes; retain all conservative action budgets.
+                    $state['episode'] = null;
+                    $state['operating_mode'] = $mode;
+                }
+                $result = $this->policy->step($state, $sample);
+                $proposal = $result['proposal'];
+                $this->observations = $result['state'];
+                if ($modeChanged || $proposal !== null) $this->persist($store, $result['state']);
+                $result['execution'] = 'none';
+                if ($proposal === null) return $result;
+                // Disabled actions consume their reservation conservatively, without fake receipts.
+                if ($mode === 'monitor' || ($proposal['kind'] === 'reboot' && $mode !== 'recover')) {
+                    $result['execution'] = 'mode_inhibited';
+                    return $result;
+                }
+                $checks = ($this->freshInterlocks)();
+                if (!$this->clearInterlocks($checks, $sample)) {
+                    $result['execution'] = 'interlock_inhibited';
+                    return $result;
+                }
+                // Capture failure blocks the action; it never skips straight to a reboot.
+                ($this->captureEvidence)($proposal, $sample);
+                if (!$this->clearInterlocks(($this->freshInterlocks)(), $sample)) {
+                    $result['execution'] = 'interlock_inhibited';
+                    return $result;
+                }
+                $receipt = ($this->executor)($proposal);
+                if (!is_array($receipt) || ($receipt['id'] ?? null) !== $proposal['id'] ||
+                    !in_array($receipt['outcome'] ?? null, ['completed', 'failed', 'timeout_cleaned'], true)) {
+                    throw new \RuntimeException('Executor did not return a verifiable completion receipt');
+                }
+                $result['execution'] = $receipt['outcome'];
+                $result['executes_actions'] = true;
+                if ($proposal['kind'] === 'repair_php_fpm') {
+                    $now = ($this->clock)();
+                    if (!is_int($now)) throw new \RuntimeException('Invalid completion clock');
+                    $result['state'] = $this->policy->acknowledgeRepair($result['state'], $proposal['id'], $now);
+                    $this->persist($store, $result['state']);
+                }
                 return $result;
-            }
-            $checks = ($this->freshInterlocks)();
-            if (!$this->clearInterlocks($checks, $sample)) {
-                $result['execution'] = 'interlock_inhibited';
-                return $result;
-            }
-            // Capture failure blocks the action; it never skips straight to a reboot.
-            ($this->captureEvidence)($proposal, $sample);
-            if (!$this->clearInterlocks(($this->freshInterlocks)(), $sample)) {
-                $result['execution'] = 'interlock_inhibited';
-                return $result;
-            }
-            $receipt = ($this->executor)($proposal);
-            if (!is_array($receipt) || ($receipt['id'] ?? null) !== $proposal['id'] ||
-                !in_array($receipt['outcome'] ?? null, ['completed', 'failed', 'timeout_cleaned'], true)) {
-                throw new \RuntimeException('Executor did not return a verifiable completion receipt');
-            }
-            $result['execution'] = $receipt['outcome'];
-            $result['executes_actions'] = true;
-            if ($proposal['kind'] === 'repair_php_fpm') {
-                $now = ($this->clock)();
-                if (!is_int($now)) throw new \RuntimeException('Invalid completion clock');
-                $result['state'] = $this->policy->acknowledgeRepair($result['state'], $proposal['id'], $now);
-                $store->commit($result['state']);
-            }
-            return $result;
-        });
+            });
+        } catch (\Throwable $error) {
+            // Includes uncertain rename/fsync and executor receipts. Never reuse cached
+            // fault confirmation across a failed transaction.
+            $this->observations = $this->journal = null;
+            throw $error;
+        }
+    }
+
+    private function persist(StateStore $store, array $state): void
+    {
+        $store->commit($state);
+        $this->journal = $this->observations = $state;
     }
 
     private function clearInterlocks(mixed $checks, array $sample): bool

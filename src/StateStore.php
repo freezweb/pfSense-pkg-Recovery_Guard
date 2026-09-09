@@ -29,7 +29,15 @@ final class StateStore
         if (is_link($path)) throw new \RuntimeException('Journal lock is a symlink');
         $handle = @fopen($path, 'c+b');
         if ($handle === false) throw new \RuntimeException('Cannot open journal lock');
-        @chmod($path, 0600);
+        // chmod on every sample can itself write metadata even with no journal commit.
+        // The private directory protects a newly created lock until this first chmod.
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $stat = fstat($handle);
+            if ($stat === false || (($stat['mode'] & 0777) !== 0600 && !chmod($path, 0600))) {
+                fclose($handle);
+                throw new \RuntimeException('Cannot protect journal lock');
+            }
+        }
         if (!flock($handle, LOCK_EX | LOCK_NB)) {
             fclose($handle);
             throw new \RuntimeException('Another recovery operation owns the journal');

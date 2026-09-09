@@ -79,7 +79,7 @@ $g = new ActionCoordinator(new RecoveryPolicy(), $broken, fn() => $interlocks, f
     function () use (&$ran): array { $ran++; return []; }, fn() => 1000);
 mustThrow(fn() => $g->tick(sample(1000), 'recover'), 'durability failure bubbles up');
 check($ran === 0, 'durability failure never invokes executor');
-// Fail exactly at the action reservation, after earlier observation commits succeeded.
+// Fail exactly at the action reservation, after the initial mode commit succeeded.
 $d2 = directoryForTest(); $st2 = new StateStore($d2, $sync);
 $st2->exclusive(fn($s) => $s->provision(RecoveryPolicy::provision()));
 $failAtReservation = new StateStore($d2, static function (string $path) use ($sync): void {
@@ -123,6 +123,54 @@ $g = new ActionCoordinator(new RecoveryPolicy(), $st4, fn() => $interlocks, fn()
 for ($time = 1000; $time <= 1900; $time += 30) $g->tick(sample($time), 'monitor');
 for ($time = 1930; $time <= 2860; $time += 30) $g->tick(sample($time), 'recover');
 check($ran === ['repair_php_fpm', 'reboot'], 'mode change reconfirms and can recover after conservative cooldown');
+
+// Normal samples stay in memory; only mode, action reservation and receipt need fsync.
+$d5 = directoryForTest(); $writes = 0;
+$countedSync = static function (string $path) use (&$writes, $sync): void {
+    $writes++;
+    if ($sync !== null) $sync($path);
+    else { $h = fopen($path, 'r'); try { if (!fsync($h)) throw new RuntimeException('fsync'); } finally { fclose($h); } }
+};
+$st5 = new StateStore($d5, $countedSync);
+$st5->exclusive(fn($s) => $s->provision(RecoveryPolicy::provision()));
+$writes = 0; $ran = [];
+$executor = function ($p) use (&$ran): array { $ran[] = $p['kind']; return ['id' => $p['id'], 'outcome' => 'completed']; };
+$newGuard = function () use ($st5, $interlocks, $executor, &$time): ActionCoordinator {
+    return new ActionCoordinator(new RecoveryPolicy(), $st5, fn() => $interlocks, fn() => null,
+        $executor, function () use (&$time): int { return $time; });
+};
+$g = $newGuard();
+for ($time = 1000; $time < 4000; $time += 30) $g->tick(sample($time, ['php_ok' => true]), 'recover');
+check($writes === 1, 'one mode write across 100 healthy samples');
+for ($time = 4000; $time < 4120; $time += 30) $g->tick(sample($time), 'recover');
+check($writes === 1, 'unconfirmed faults do not write flash');
+$time = 4120; $g->tick(sample($time), 'recover');
+check($writes === 3 && $ran === ['repair_php_fpm'], 'reservation and receipt each durable, exactly once');
+$g = $newGuard();
+for ($time = 4150; $time < 5000; $time += 30) $g->tick(sample($time), 'recover');
+check($ran === ['repair_php_fpm'], 'restart discards old escalation progress and retains repair cooldown');
+check($st5->exclusive(fn($s) => $s->read())['repair_times'] === [4120], 'restart preserves durable budget without sample writes');
+file_put_contents($d5 . '/state.json', '{broken');
+mustThrow(fn() => $g->tick(sample(5000), 'recover'), 'cached supervisor still detects journal corruption');
+
+// A second supervisor's reservation invalidates cached fault confirmation.
+$d6 = directoryForTest(); $st6 = new StateStore($d6, $sync);
+$st6->exclusive(fn($s) => $s->provision(RecoveryPolicy::provision()));
+$ran = [];
+$newGuard = function () use ($st6, $interlocks, $executor, &$time): ActionCoordinator {
+    return new ActionCoordinator(new RecoveryPolicy(), $st6, fn() => $interlocks, fn() => null,
+        $executor, function () use (&$time): int { return $time; });
+};
+$first = $newGuard(); $second = $newGuard();
+for ($time = 1000; $time <= 1090; $time += 30) {
+    $first->tick(sample($time), 'recover');
+    if ($time > 1000) $second->tick(sample($time), 'recover');
+}
+$time = 1120; $first->tick(sample($time), 'recover');
+$result = $second->tick(sample($time), 'recover');
+check($ran === ['repair_php_fpm'] && $result['execution'] === 'none', 'competing observer never repeats the reservation');
+check($result['state']['repair_times'] === [1120], 'competing observer imports fresh durable budget');
+
 file_put_contents($d . '/state.json', '{broken');
 mustThrow(fn() => $st->exclusive(fn($s) => $s->read()), 'corrupt JSON is not empty history');
 unlink($d . '/state.json');
