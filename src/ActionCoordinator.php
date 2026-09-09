@@ -18,6 +18,12 @@ final class ActionCoordinator
         private \Closure $clock,
     ) {}
 
+    /** Invalidate a measurement episode without erasing durable action budgets. */
+    public function resetObservations(): void
+    {
+        $this->observations = $this->journal = null;
+    }
+
     public function tick(array $sample, string $mode): array
     {
         if (!in_array($mode, ['monitor', 'repair', 'recover'], true)) {
@@ -103,6 +109,7 @@ final class ActionCoordinator
             if (!array_key_exists($key, $checks) || $checks[$key] !== false) return false;
         }
         if (($checks['boot_id'] ?? null) !== ($sample['boot_id'] ?? null)) return false;
+        if (isset($sample['context_id']) && ($checks['context_id'] ?? null) !== $sample['context_id']) return false;
         $now = ($this->clock)();
         return is_int($now) && $now >= $sample['time'] && $now - $sample['time'] <= 30;
     }

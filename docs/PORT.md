@@ -19,7 +19,7 @@ Use an isolated FreeBSD guest with `pkg` and PHP, and the pfSense `devel` ports 
 ```sh
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes stage
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes check-plist stage-qa package
-pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1.pkg
+pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_1.pkg
 ```
 
 These commands build and inspect the package without installing it or executing its pfSense registration scripts. They passed on FreeBSD 15.0-p13; the resulting ABI is not a claim of compatibility with another FreeBSD or pfSense release.

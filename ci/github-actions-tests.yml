@@ -26,6 +26,8 @@ jobs:
         run: php tests/network.php
       - name: Native configuration and local routes
         run: php tests/configuration.php
+      - name: Joined runtime and bounded log sampling
+        run: php tests/runtime.php
       - name: Stage complete port and test config adapter
         run: |
           php tools/stage-port.php
