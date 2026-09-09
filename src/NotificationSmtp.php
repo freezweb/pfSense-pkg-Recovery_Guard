@@ -30,8 +30,22 @@ final class NotificationSmtp
             'Content-Type' => 'text/plain; charset=UTF-8', 'Auto-Submitted' => 'auto-generated'];
         $transport = $this->transport ?? static function (array $params, string $to, array $headers, string $body): mixed {
             require_once 'Mail.php';
-            $mailer = \Mail::factory('smtp', $params);
-            return @$mailer->send($to, $headers, $body);
+            // PEAR's automatic authentication uses opportunistic STARTTLS. Connect
+            // without credentials, require encryption, then authenticate explicitly.
+            $connection = $params;
+            $connection['auth'] = false;
+            $connection['username'] = $connection['password'] = '';
+            $mailer = \Mail::factory('smtp', $connection);
+            if (\PEAR::isError($mailer)) return false;
+            try {
+                if ($params['auth'] !== false) {
+                    $session = @$mailer->getSMTPObject();
+                    if (\PEAR::isError($session)) return false;
+                    if (!str_starts_with($params['host'], 'ssl://') && @$session->starttls() !== true) return false;
+                    if (@$session->auth($params['username'], $params['password'], $params['auth'], false) !== true) return false;
+                }
+                return @$mailer->send($to, $headers, $body);
+            } finally { @$mailer->disconnect(); }
         };
         // A failure can occur after the relay accepted DATA. Only explicit true proves acceptance.
         // Do not persist PEAR errors: they may contain recipient or authentication details.
@@ -59,6 +73,7 @@ final class NotificationSmtp
         if ($port === false) throw new \InvalidArgumentException('Invalid SMTP port');
         $username = $smtp['username'] ?? ''; $password = $smtp['password'] ?? '';
         if (!is_string($username) || !is_string($password)) throw new \InvalidArgumentException('Invalid SMTP authentication');
+        if (($username === '') !== ($password === '')) throw new \InvalidArgumentException('Incomplete SMTP authentication');
         $auth = $username !== '' && $password !== '' ? ($smtp['authentication_mechanism'] ?? 'PLAIN') : false;
         if ($auth !== false && !in_array($auth, ['PLAIN', 'LOGIN', 'CRAM-MD5', 'DIGEST-MD5'], true)) throw new \InvalidArgumentException('Unsupported SMTP authentication');
         $verify = ($smtp['sslvalidate'] ?? '') !== 'disabled';

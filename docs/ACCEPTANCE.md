@@ -32,4 +32,6 @@ Netgate decides whether to accept a package. No PR has been submitted yet. The e
 
 The current GitHub OAuth credential lacks the workflow scope. Therefore the prepared GitHub Actions definition is tracked as `ci/github-actions-tests.yml`, not installed as an active workflow. Source publication and direct test execution do not depend on this permission. Do not claim hosted CI has run until a real workflow run has been verified.
 
+A new ordinary free installer checkout is prepared, with current private billing information still pending. No new order or downloaded image is claimed. Real SMTP encryption/authentication tests now pass in the private FreeBSD laboratory; these do not replace the required native pfSense entrypoint tests.
+
 Sources: [Netgate package development](https://docs.netgate.com/pfsense/en/latest/development/develop-packages.html), [port layout](https://docs.netgate.com/pfsense/en/latest/development/package-directories.html), [installation media](https://docs.netgate.com/pfsense/en/latest/install/download-installer-image.html).

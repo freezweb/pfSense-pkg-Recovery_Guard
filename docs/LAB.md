@@ -46,6 +46,8 @@ The reboot fixture refuses to overwrite an existing test directory. It keeps its
 
 The existing Netgate account now works in the in-app browser. An existing fulfilled AMD64 ISO installer order was reopened using its fresh emailed access link, without a new order or account. Its Download Now action is blocked by the browser, and a direct request returned HTTP 404. No matching local download was found. The user has been asked to download it through their browser and provide the local path. No browser barrier or CAPTCHA was bypassed, and no unofficial image was substituted.
 
+A subsequent ordinary shop attempt reaches a new free AMD64 ISO checkout. Current private billing details are pending; no new order has been placed and no installer obtained through this attempt.
+
 Sources: [official VM image directory and checksums](https://download.freebsd.org/releases/VM-IMAGES/15.0-RELEASE/amd64/Latest/), [FreeBSD BASIC-CLOUDINIT build configuration](https://github.com/freebsd/freebsd-src/blob/releng/15.0/release/tools/basic-cloudinit.conf), [native nuageinit configuration](https://github.com/freebsd/freebsd-src/blob/releng/15.0/libexec/nuageinit/nuageinit.7), [QEMU user-network restrictions](https://www.qemu.org/docs/master/system/invocation.html), [Netgate installer](https://shop.netgate.com/products/netgate-installer).
 
 ## Service lifecycle fixture
@@ -85,3 +87,14 @@ RECOVERY_GUARD_ISOLATED_LAB=1 php tests/handoff-reboot-lab.php verify /root/reco
 ```
 
 Always choose a new fixture path for preparation. Verification reads the retained evidence, confirms a changed native boot identity and exact budget/claimed-intent hashes, and checks that a consumed intent cannot replay. It does not request another reboot. The harness uses a test-specific FreeBSD action, not pfSense system cleanup, and its measurements/maintenance flags are fixtures. Source does not contain the laboratory's private access configuration.
+
+## Private SMTP and TLS fixtures
+
+With the ignored, pinned PEAR fixture described in VALIDATION.md and OpenSSL enabled in the isolated guest:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/smtp-lab.php /root/pear-mail-fixture
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/smtp-tls-lab.php /root/pear-mail-fixture
+```
+
+The first suite checks anonymous SMTP acceptance, rejection and message preservation. The second generates short-lived private certificates, binds only ephemeral loopback listeners and launches deadline-bounded clients with a fixture-only trust file. It tests real implicit TLS/STARTTLS and PLAIN/LOGIN authentication, with nine success/failure cases. Server evidence contains only protocol-state booleans. Neither suite uses external recipients, real account credentials or changes to system trust. The lab marker is a guard against accidental execution, not a security boundary. Full native pfSense SMTP configuration/entrypoint testing remains separate.

@@ -119,6 +119,10 @@ try {
         rejects(fn() => NotificationSmtp::target($bad), 'invalid SMTP setting rejected: ' . $key);
     }
     $config['smtp']['sslvalidate'] = 'disabled';
+    foreach (['username', 'password'] as $key) {
+        $bad = $config; $bad['smtp'][$key] = '';
+        rejects(fn() => NotificationSmtp::target($bad), 'partial authentication cannot silently become anonymous: ' . $key);
+    }
     check($sender->send($j) === 'target_changed', 'TLS policy change invalidates queued target');
     [$q, $s, $dir] = fixture();
     $q->synchronize($target, [event()]);
