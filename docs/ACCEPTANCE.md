@@ -12,6 +12,8 @@ A separate isolated VM now runs the officially installed pfSense CE 2.9.0-RELEAS
 - Native HTTPS authentication, CSRF rejection with unchanged config.xml, authenticated settings save, monitor startup and authenticated diagnostics export pass. TLS uses the real certificate, matching hostname and explicit CA trust; no verification bypass. Eight native restricted-user authentication/privilege checks now pass after adding the runtime privilege definition; visual browser rendering remains untested.
 - Existing platform evidence includes real isolated FreeBSD reboot persistence, 23 full/read-only filesystem checks, nine SMTP encryption/authentication cases and three anonymous SMTP cases. These are supporting evidence, not pfSense native cleanup or notification configuration integration.
 
+The complete RuntimeSupervisor also passes a real native PHP fault/repair with actual link, configured peer replies, log worker and real clocks; only the harness settings/private ledger differ from the installed monitor. A separate carrier-loss probe returned unknown for native ping send errors, so this does not close the full combined-failure reboot gate.
+
 The policy, atomic durable budgets, bounded collectors, diagnostic retention, repair controller, native upgrade lease, one-use reboot handoff and default-off notifications are implemented. See [PLATFORM.md](PLATFORM.md), [RUNTIME.md](RUNTIME.md) and the chronological [validation record](VALIDATION.md).
 
 ## Required before release
