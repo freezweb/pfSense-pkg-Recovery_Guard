@@ -32,6 +32,8 @@ jobs:
         run: php tests/snapshot.php
       - name: Durable diagnostic records and action ordering
         run: php tests/diagnostics.php
+      - name: Final reboot fault reconfirmation
+        run: php tests/reboot-verifier.php
       - name: Stage complete port and test config adapter
         run: |
           php tools/stage-port.php

@@ -19,7 +19,8 @@ Recovery Guard is an independent recovery supervisor under development for pfSen
 - Native monitor service: separate PHP CLI process, exclusive supervisor lease, interruptible scheduling, bounded log-worker requests and signal-driven shutdown. First initialization creates the durable journal; normal lifecycle operations preserve it and refuse to reset missing or invalid budgets. Native pfSense lifecycle validation remains pending.
 - Repair controller and executor: native FreeBSD process ownership preserves daemons after a successful controller exit and verifies descendant cleanup on failure/timeout. A PHP-FPM challenge distinguishes service health from script exit status. Sixteen isolated lab checks include a real private PHP-FPM instance. These adapters are shipped for development but are not connected to automatic recovery; native pfSense repair and lifecycle coordination remain unverified.
 - DiagnosticJournal: durable, bounded action evidence with 64-record retention, explicit outcomes, sanitized fields and conservative failure handling. Monitor proposals are recorded as inhibited. The native page includes a history and JSON export; rendering and access controls still need validation on pfSense.
-- Reboot handoff: durable one-use intent tied to the reserved budget, diagnostic evidence, boot and configuration. A worker takes the supervisor lease after retirement and rechecks maintenance/HA/upgrade gates around the durable claim. Wall and monotonic deadlines prevent late execution. The native worker and dispatcher are development adapters; automatic recovery is still not connected.
+- Reboot handoff: durable one-use intent tied to the reserved budget, diagnostic evidence, boot and configuration. A worker takes the supervisor lease after retirement and rechecks maintenance/HA/upgrade gates and current PHP/LAN failure around the durable claim. Wall and monotonic deadlines prevent late execution. The native worker and dispatcher are development adapters; automatic recovery is still not connected.
+- RebootVerifier: fresh PHP transactions before and after direct checks of the exact configured LAN peers. A recovered or unknown result inhibits reboot. With an active link, a new five-second log observation must corroborate the fault; historical log messages cannot qualify. Configuration and clock changes also inhibit.
 - NativeSnapshot: bounded read-only worker using pfSense's original XML parser and native boot/process observations. It returns selected topology and lifecycle flags, never credentials, raw process arguments or the full config. Passive execution on pfSense CE 2.8.1 leaves config.xml and config.cache unchanged.
 - LogRateProbe: volatile, bounded sampling of native PHP-FPM socket retry messages. Historical records are skipped; partial coverage is unknown unless the observed lower bound already proves a storm. Rotation tests retain evidence through the old descriptor without treating replacement history as fresh failures.
 
@@ -39,6 +40,7 @@ php tests/configuration.php
 php tests/runtime.php
 php tests/snapshot.php
 php tests/diagnostics.php
+php tests/reboot-verifier.php
 php tools/stage-port.php
 php tests/native-config.php
 php examples/replay-outage.php

@@ -44,7 +44,8 @@ if ($mode === 'verify') {
 if ($mode === 'worker') {
     $expected = json_decode(file_get_contents($root . '/expected.json'), true, flags: JSON_THROW_ON_ERROR);
     $fresh = fn() => ['enabled' => true, 'mode' => 'recover', 'boot_id' => bootId(), 'context_id' => $expected['context_id'],
-        'maintenance' => false, 'upgrade' => false, 'ha_configured' => false, 'other_repair' => false, 'shutting_down' => false];
+        'maintenance' => false, 'upgrade' => false, 'ha_configured' => false, 'other_repair' => false, 'shutting_down' => false,
+        'php_ok' => false, 'local_reachable' => false, 'critical_link_up' => false, 'log_storm' => null];
     $end = hrtime(true) + 20000000000;
     do {
         try {

@@ -16,7 +16,8 @@ function fixture(): object {
     $f->journal = new DiagnosticJournal($f->evidence);
     $f->handoff = new RebootHandoff($f->budget, $f->intent, $f->journal, fn() => $f->time);
     $f->checks = ['enabled' => true, 'mode' => 'recover', 'boot_id' => 'lab:boot', 'context_id' => str_repeat('a', 64),
-        'maintenance' => false, 'upgrade' => false, 'ha_configured' => false, 'other_repair' => false, 'shutting_down' => false];
+        'maintenance' => false, 'upgrade' => false, 'ha_configured' => false, 'other_repair' => false, 'shutting_down' => false,
+        'php_ok' => false, 'local_reachable' => false, 'critical_link_up' => false, 'log_storm' => null];
     $dispatch = new RebootDispatcher($f->handoff, function ($token) use ($f) { $f->token = $token; });
     $g = new ActionCoordinator(new RecoveryPolicy(), $f->budget, fn() => $f->checks, $f->journal->capture(...),
         fn($p) => $p['kind'] === 'reboot' ? $dispatch->execute($p) : ['id' => $p['id'], 'outcome' => 'failed'], fn() => $f->time, $f->journal->outcome(...));
@@ -44,8 +45,9 @@ check($f->handoff->state()['intent']['claimed_at'] === null && $f->journal->reco
 check(attempt($f) === 1 && $f->handoff->state()['intent']['claimed_at'] === 10000, 'claim is durable before fake reboot routine');
 check(attempt($f) === 0 && hash_file('sha256', $f->path . '/budget/state.json') === $f->hash, 'duplicate invocation cannot reboot or rewrite budget');
 foreach (['enabled' => false, 'mode' => 'monitor', 'boot_id' => 'another-boot', 'context_id' => str_repeat('b', 64),
-    'maintenance' => true, 'upgrade' => true, 'ha_configured' => true, 'other_repair' => true, 'shutting_down' => true, 'upgrade_unknown' => null] as $key => $value) {
-    $f = fixture(); $f->checks[$key === 'upgrade_unknown' ? 'upgrade' : $key] = $value;
+    'maintenance' => true, 'upgrade' => true, 'ha_configured' => true, 'other_repair' => true, 'shutting_down' => true, 'upgrade_unknown' => null,
+    'php_ok' => true, 'local_reachable' => true, 'critical_link_up' => true, 'php_unknown' => null, 'lan_unknown' => null] as $key => $value) {
+    $f = fixture(); $f->checks[match ($key) { 'upgrade_unknown' => 'upgrade', 'php_unknown' => 'php_ok', 'lan_unknown' => 'local_reachable', default => $key }] = $value;
     check(attempt($f) === 0 && $f->handoff->state()['intent']['claimed_at'] === null, 'fresh gate: ' . $key);
 }
 foreach ([10061, 9999] as $time) { $f = fixture(); $f->time = $time; check(attempt($f) === 0, 'expired or backward clock inhibits'); }
@@ -66,6 +68,13 @@ check($other->exclusive(fn() => attempt($f)) === 0 && $f->handoff->state()['inte
 $f = fixture(); $count = 0;
 check(attempt($f, function () use ($f, &$count) { $c = $f->checks; if (++$count === 2) $c['maintenance'] = true; return $c; }) === 0 &&
     $f->handoff->state()['intent']['claimed_at'] !== null && attempt($f) === 0, 'post-claim maintenance change consumes intent without reboot');
+foreach (['php_ok', 'local_reachable'] as $key) {
+    $f = fixture(); $count = 0;
+    check(attempt($f, function () use ($f, &$count, $key) { $c = $f->checks; if (++$count === 2) $c[$key] = true; return $c; }) === 0 &&
+        $f->handoff->state()['intent']['claimed_at'] !== null, 'post-claim functional recovery inhibits invocation');
+}
+$f = fixture(); $f->checks['critical_link_up'] = true; $f->checks['log_storm'] = true;
+check(attempt($f) === 1, 'fresh log storm can corroborate failure with an active link');
 $f = fixture();
 $bad = new StateStore($f->path . '/intent', static function () { throw new RuntimeException('Injected claim sync failure'); });
 $f->handoff = new RebootHandoff($f->budget, $bad, $f->journal, fn() => $f->time);

@@ -100,6 +100,11 @@ final class RebootHandoff
         foreach (['maintenance', 'upgrade', 'ha_configured', 'other_repair', 'shutting_down'] as $key) {
             if (!array_key_exists($key, $checks) || $checks[$key] !== false) throw new \RuntimeException('Reboot interlock inhibits');
         }
+        if (($checks['php_ok'] ?? null) !== false || ($checks['local_reachable'] ?? null) !== false ||
+            !(($checks['critical_link_up'] ?? null) === false ||
+                (($checks['critical_link_up'] ?? null) === true && ($checks['log_storm'] ?? null) === true))) {
+            throw new \RuntimeException('Current faults do not justify reboot');
+        }
     }
     private function now(): int
     {
