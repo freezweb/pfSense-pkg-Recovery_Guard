@@ -98,3 +98,15 @@ RECOVERY_GUARD_ISOLATED_LAB=1 php tests/smtp-tls-lab.php /root/pear-mail-fixture
 ```
 
 The first suite checks anonymous SMTP acceptance, rejection and message preservation. The second generates short-lived private certificates, binds only ephemeral loopback listeners and launches deadline-bounded clients with a fixture-only trust file. It tests real implicit TLS/STARTTLS and PLAIN/LOGIN authentication, with nine success/failure cases. Server evidence contains only protocol-state booleans. Neither suite uses external recipients, real account credentials or changes to system trust. The lab marker is a guard against accidental execution, not a security boundary. Full native pfSense SMTP configuration/entrypoint testing remains separate.
+
+## Actual storage failure fixture
+
+As root in the designated isolated FreeBSD guest only:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/storage-lab.php
+```
+
+The test mounts a new 8 MiB tmpfs under a newly created private root directory. It exhausts only that filesystem and separately remounts it read-only. It never fills or remounts the guest root filesystem, accesses a physical disk or invokes a real repair/reboot/mail sender. Cleanup unmounts its exact mount path, including after failed assertions.
+
+Twenty-three checks cover failed budget reservations, unchanged prior journals, reconfirmation after storage recovery, a full diagnostic store after a successful budget reservation, conservative cooldown without reboot escalation, and mail claim inhibition/recovery. The first fill attempt exposed a fixture issue: failure to allocate a large block can leave enough pages for a small journal. The final fixture exhausts progressively smaller allocations too. Retained results distinguish failure to create a temporary journal from failure to open the writer lock on a read-only filesystem. Tmpfs tests do not establish power-loss durability or behavior during an uninterruptible physical I/O hang; native fsync and injected ambiguous-commit tests remain separate evidence.
