@@ -9,7 +9,7 @@ try {
     if (PHP_SAPI !== 'cli' || PHP_OS !== 'FreeBSD' || !function_exists('pcntl_async_signals') ||
         !function_exists('posix_geteuid') || posix_geteuid() !== 0) throw new RuntimeException('Native root CLI required');
     foreach (['RecoveryPolicy', 'StateStore', 'ActionCoordinator', 'Configuration', 'ProbeProcess', 'NativeSnapshot',
-        'NetworkProbe', 'EndpointBaseline', 'FastCgiProbe', 'LogWorker', 'RuntimeSupervisor', 'ServiceLoop', 'ServiceState', 'DiagnosticJournal'] as $name) require_once __DIR__ . '/' . $name . '.php';
+        'NetworkProbe', 'EndpointBaseline', 'FastCgiProbe', 'LogWorker', 'RuntimeSupervisor', 'ServiceLoop', 'ServiceState', 'DiagnosticJournal', 'RebootHandoff'] as $name) require_once __DIR__ . '/' . $name . '.php';
     $runner = new \RecoveryGuard\ProbeProcess();
     $command = $argv[1] ?? 'run';
     $directory = '/cf/conf/recovery_guard';

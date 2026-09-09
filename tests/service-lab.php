@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 if (PHP_OS !== 'FreeBSD' || getenv('RECOVERY_GUARD_ISOLATED_LAB') !== '1' || !is_file('/root/RECOVERY_GUARD_ISOLATED_LAB')) throw new RuntimeException('Isolated FreeBSD laboratory required');
-foreach (['RecoveryPolicy', 'StateStore', 'ServiceState', 'DiagnosticJournal', 'LogWorker'] as $name) require __DIR__ . '/../src/' . $name . '.php';
+foreach (['RecoveryPolicy', 'StateStore', 'ServiceState', 'DiagnosticJournal', 'RebootHandoff', 'LogWorker'] as $name) require __DIR__ . '/../src/' . $name . '.php';
 use RecoveryGuard\{RecoveryPolicy, StateStore, ServiceState, LogWorker};
 umask(0077);
 $dir = '/root/recovery-guard-service-' . bin2hex(random_bytes(6)); mkdir($dir, 0700);

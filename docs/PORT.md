@@ -2,7 +2,7 @@
 
 The canonical PHP library lives in `src`. Run `php tools/stage-port.php` once to create a complete `build/ports/sysutils/pfSense-pkg-Recovery_Guard` source port, including libraries, native adapter/page/XML, license and sorted install manifest. Pass an unused destination directory to create another staging tree; the tool refuses to overwrite an existing destination.
 
-The template is a monitor-only preview. It registers a native service and can start monitoring when explicitly enabled with valid peers. Both the save adapter and daemon reject repair/recovery modes. Package resync stops the service, initializes a new journal or validates the existing one, then starts the enabled monitor. Deinstallation stops the service and retains its budget and diagnostic journals. Missing or invalid existing state is never silently reset. These hooks still require actual pfSense lifecycle validation.
+The template is a monitor-only preview. It registers a native service and can start monitoring when explicitly enabled with valid peers. Both the save adapter and daemon reject repair/recovery modes. Package resync stops the service, initializes a new journal or validates the existing one, then starts the enabled monitor. Deinstallation stops the service and retains its budget, diagnostic and handoff journals. Missing or invalid existing state is never silently reset. These hooks still require actual pfSense lifecycle validation.
 
 Saving settings uses pfSense's native config API and writes only `installedpackages/recoveryguard/settings`. The element must not be named `config`: pfSense treats that name as a list, changing the shape during XML serialization. Native `write_config` still performs its normal system-wide save/backup/synchronization behavior. A reported write failure restores the current request's package settings; this is not a claim of rollback after a partially persisted native write. A later service-apply failure is reported separately; already saved settings remain saved.
 
@@ -21,7 +21,7 @@ Use an isolated FreeBSD guest with `pkg`, a C compiler, PHP CLI and its filter, 
 ```sh
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes stage
 make PORTSDIR=/path/to/pfsense-ports BATCH=yes check-plist stage-qa package
-pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_5.pkg
+pkg info -F work/pkg/pfSense-pkg-Recovery_Guard-0.1.0.a1_6.pkg
 ```
 
 These commands build and inspect the package without installing it or executing its pfSense registration scripts. They passed on FreeBSD 15.0-p13; the resulting ABI is not a claim of compatibility with another FreeBSD or pfSense release.

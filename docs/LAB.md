@@ -68,3 +68,20 @@ RECOVERY_GUARD_ISOLATED_LAB=1 php tests/repair-controller-lab.php /root/repair-c
 ```
 
 The lab binary accepts synthetic commands. The production port never defines `RECOVERY_GUARD_LAB`, and its helper only accepts the fixed native repair operation. The test starts one real private PHP-FPM instance on a Unix socket and stops it afterwards. Its isolated root pool permits access to the private fixture tree; it is not a proposed production FPM configuration. Sixteen checks pass. Process-failure fixtures self-expire after eight seconds when deliberately testing a killed controller. Retained evidence is under `/root/recovery-guard-repair-*`.
+
+## Reboot handoff tests
+
+Non-rebooting coverage in the isolated FreeBSD guest:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/handoff-lab.php
+```
+
+The following test **reboots the guest automatically**. Use only the designated isolated disposable VM, never a production firewall. `prepare` builds a synthetic fault timeline, persists real reservation/evidence/intent records, starts a separate worker and retires the fixture supervisor. The worker invokes FreeBSD shutdown. Reconnect after the guest boots, then use `verify`:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/handoff-reboot-lab.php prepare /root/recovery-guard-handoff-reboot-example
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/handoff-reboot-lab.php verify /root/recovery-guard-handoff-reboot-example
+```
+
+Always choose a new fixture path for preparation. Verification reads the retained evidence, confirms a changed native boot identity and exact budget/claimed-intent hashes, and checks that a consumed intent cannot replay. It does not request another reboot. The harness uses a test-specific FreeBSD action, not pfSense system cleanup, and its measurements/maintenance flags are fixtures. Source does not contain the laboratory's private access configuration.

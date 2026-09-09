@@ -81,12 +81,13 @@ final class ActionCoordinator
                 }
                 $receipt = ($this->executor)($proposal);
                 if (!is_array($receipt) || ($receipt['id'] ?? null) !== $proposal['id'] ||
-                    !in_array($receipt['outcome'] ?? null, ['completed', 'failed', 'timeout_cleaned'], true)) {
+                    (!in_array($receipt['outcome'] ?? null, ['completed', 'failed', 'timeout_cleaned'], true) &&
+                        !(($receipt['outcome'] ?? null) === 'handoff_pending' && $proposal['kind'] === 'reboot'))) {
                     throw new \RuntimeException('Executor did not return a verifiable completion receipt');
                 }
                 $result['execution'] = $receipt['outcome'];
                 $this->record($proposal, $receipt['outcome']); $captured = null;
-                $result['executes_actions'] = true;
+                $result['executes_actions'] = $receipt['outcome'] !== 'handoff_pending';
                 if ($proposal['kind'] === 'repair_php_fpm') {
                     $now = ($this->clock)();
                     if (!is_int($now)) throw new \RuntimeException('Invalid completion clock');

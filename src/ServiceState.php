@@ -16,5 +16,6 @@ final class ServiceState
         }
         if (!(new RecoveryPolicy())->acceptsState($store->exclusive(fn($s) => $s->read()))) throw new \RuntimeException('Invalid existing budget');
         DiagnosticJournal::initialize($directory . '/diagnostics');
+        RebootHandoff::initialize($directory . '/handoff');
     }
 }

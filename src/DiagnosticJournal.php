@@ -6,7 +6,7 @@ namespace RecoveryGuard;
 final class DiagnosticJournal
 {
     private const LIMIT = 64;
-    private const RESULTS = ['pending', 'mode_inhibited', 'interlock_inhibited', 'completed', 'failed', 'timeout_cleaned', 'unknown'];
+    private const RESULTS = ['pending', 'handoff_pending', 'mode_inhibited', 'interlock_inhibited', 'completed', 'failed', 'timeout_cleaned', 'unknown'];
     public function __construct(private StateStore $store) {}
     public static function emptyState(): array { return ['version' => 1, 'records' => []]; }
 
