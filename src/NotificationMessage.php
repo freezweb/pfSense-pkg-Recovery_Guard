@@ -11,7 +11,7 @@ final class NotificationMessage
             !preg_match('/\A[a-f0-9]{64}\z/D', $job['id'])) throw new \InvalidArgumentException('Invalid notification message');
         $descriptions = ['proposed' => 'An action was proposed; execution is not confirmed.',
             'mode_inhibited' => 'The operating mode inhibited the proposed action.',
-            'interlock_inhibited' => 'A maintenance or configuration interlock inhibited the action.',
+            'interlock_inhibited' => 'Current safety or health checks inhibited the action.',
             'completed' => 'The action executor reported completion.', 'failed' => 'The action attempt failed.',
             'timeout_cleaned' => 'The action timed out; process cleanup was verified.',
             'handoff_pending' => 'A reboot was handed off; a completed reboot has not been established.',

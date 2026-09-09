@@ -82,7 +82,7 @@ try {
         echo '<p>' . gettext('No action proposals have been recorded.') . '</p>';
     } else {
         $results = ['pending' => gettext('No outcome recorded'), 'handoff_pending' => gettext('Reboot handed off; completion unconfirmed'), 'mode_inhibited' => gettext('Monitoring only'),
-            'interlock_inhibited' => gettext('Inhibited by maintenance or configuration'), 'completed' => gettext('Completed'), 'boot_observed' => gettext('New boot observed; cause and service recovery unconfirmed'),
+            'interlock_inhibited' => gettext('Inhibited by current safety or health checks'), 'completed' => gettext('Completed'), 'boot_observed' => gettext('New boot observed; cause and service recovery unconfirmed'),
             'failed' => gettext('Failed'), 'timeout_cleaned' => gettext('Timed out; process cleanup verified'), 'unknown' => gettext('Completion unknown')];
         $tri = static fn($v) => $v === null ? gettext('Unknown') : ($v ? gettext('Yes') : gettext('No'));
         echo '<div class="table-responsive"><table class="table table-striped table-condensed"><thead><tr>';

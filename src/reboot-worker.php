@@ -5,14 +5,19 @@ $log = null;
 try {
     if (PHP_SAPI !== 'cli' || PHP_OS !== 'FreeBSD' || !function_exists('posix_geteuid') || posix_geteuid() !== 0 ||
         !is_file('/etc/inc/system.inc')) throw new RuntimeException('Native root worker required');
-    foreach (['RecoveryPolicy', 'StateStore', 'DiagnosticJournal', 'RebootHandoff', 'ServiceLoop', 'ProbeProcess', 'Configuration', 'NativeSnapshot', 'NetworkProbe', 'FastCgiProbe', 'LogWorker', 'RebootVerifier'] as $name) require_once __DIR__ . '/' . $name . '.php';
+    foreach (['RecoveryPolicy', 'StateStore', 'DiagnosticJournal', 'RebootHandoff', 'ServiceLoop', 'ProbeProcess', 'Configuration', 'NativeSnapshot', 'NetworkProbe', 'FastCgiProbe', 'LogWorker', 'RebootVerifier', 'NativeUpgradeLease'] as $name) require_once __DIR__ . '/' . $name . '.php';
     $root = '/cf/conf/recovery_guard';
     $handoff = new \RecoveryGuard\RebootHandoff(new \RecoveryGuard\StateStore($root), new \RecoveryGuard\StateStore($root . '/handoff'),
         new \RecoveryGuard\DiagnosticJournal(new \RecoveryGuard\StateStore($root . '/diagnostics')), time(...));
     $runner = new \RecoveryGuard\ProbeProcess(); $php = new \RecoveryGuard\FastCgiProbe(); $log = new \RecoveryGuard\LogWorker();
     $verifier = new \RecoveryGuard\RebootVerifier(fn() => \RecoveryGuard\NativeSnapshot::read($runner), $php->check(...),
         new \RecoveryGuard\NetworkProbe($runner->run(...)), $log->check(...), time(...), fn() => hrtime(true));
-    $fresh = $verifier->check(...);
+    $upgrade = new \RecoveryGuard\NativeUpgradeLease();
+    $fresh = static function () use ($verifier, $upgrade): array {
+        $checks = $verifier->check();
+        $upgrade->assertCurrent();
+        return $checks;
+    };
     $reboot = static function () use ($log): void {
         $log->close();
         require_once('config.inc'); require_once('functions.inc');
@@ -22,7 +27,8 @@ try {
     $deadline = hrtime(true) + 35000000000;
     do {
         try {
-            $handoff->invoke($argv[1] ?? '', new \RecoveryGuard\ServiceLoop('/var/run/recovery_guard'), $fresh, $reboot);
+            $upgrade->exclusive(fn() => (\RecoveryGuard\NativeSnapshot::read($runner)['interlocks']['upgrade'] ?? null) === false,
+                fn() => $handoff->invoke($argv[1] ?? '', new \RecoveryGuard\ServiceLoop('/var/run/recovery_guard'), $fresh, $reboot));
             break;
         } catch (\RecoveryGuard\SupervisorBusy) { usleep(100000); }
     } while (hrtime(true) < $deadline);

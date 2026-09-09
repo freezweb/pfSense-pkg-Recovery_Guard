@@ -6,6 +6,9 @@ $binary = $argv[1] ?? '';
 require __DIR__ . '/../src/RepairProcess.php';
 require __DIR__ . '/../src/RepairExecutor.php';
 require __DIR__ . '/../src/FastCgiProbe.php';
+require __DIR__ . '/../src/Configuration.php';
+require __DIR__ . '/../src/NativeUpgradeLease.php';
+require __DIR__ . '/../src/NativeRecoveryExecutor.php';
 if (!is_executable($binary)) throw new RuntimeException('Separately compiled lab controller required');
 umask(0077);
 $dir = '/root/recovery-guard-repair-' . bin2hex(random_bytes(6)); mkdir($dir, 0700);
@@ -124,11 +127,22 @@ $checks++;
 try {
     $runner = new \RecoveryGuard\RepairProcess([$binary, '2000', '/usr/local/sbin/php-fpm', '-R', '-D', '-y', $dir . '/fpm.conf']);
     $executor = new \RecoveryGuard\RepairExecutor($runner->run(...), $health);
-    $receipt = $executor->execute($proposal);
+    $snapshot = ['settings' => ['enabled' => 'on', 'mode' => 'repair', 'interface' => 'lan', 'peers' => "192.0.2.2\n192.0.2.3"],
+        'interfaces' => ['lan' => ['enable' => '', 'if' => 'em1', 'ipaddr' => '192.0.2.1', 'subnet' => '24']], 'vlans' => [], 'virtual_ips' => [],
+        'boot_id' => 'lab:boot', 'interlocks' => ['maintenance' => false, 'upgrade' => false, 'ha_configured' => false, 'other_repair' => false, 'shutting_down' => false]];
+    $now = time(); $sample = ['time' => $now, 'boot_id' => 'lab:boot', 'context_id' => hash('sha256', json_encode(['lab:boot',
+        \RecoveryGuard\Configuration::compile($snapshot['settings'], $snapshot['interfaces'])], JSON_THROW_ON_ERROR))];
+    $proposal = ['kind' => 'repair_php_fpm', 'id' => 'lab:boot:' . $now];
+    $lease = new \RecoveryGuard\NativeUpgradeLease($dir . '/upgrade.lock');
+    $native = new \RecoveryGuard\NativeRecoveryExecutor(fn() => $snapshot, fn() => ['ok' => $health()], $lease->exclusive(...),
+        $executor->execute(...), fn() => throw new LogicException('No reboot in repair fixture'), time(...), fn() => hrtime(true));
+    $receipt = $native->execute($proposal, $sample);
     $fpmPid = (int)file_get_contents($fpmPidPath);
     if ($receipt['outcome'] !== 'completed' || $fpmPid < 2 || !posix_kill($fpmPid, 0) || $health() !== true) {
         throw new RuntimeException('Real FPM did not remain healthy after controller exit');
     }
+    $checks++;
+    if ($native->execute($proposal, $sample)['outcome'] !== 'interlock_inhibited' || (int) file_get_contents($fpmPidPath) !== $fpmPid) throw new RuntimeException('Healthy private FPM was restarted again');
     $checks++;
 } finally {
     if (is_file($fpmPidPath)) {
