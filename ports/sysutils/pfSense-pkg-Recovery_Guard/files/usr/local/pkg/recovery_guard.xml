@@ -13,7 +13,12 @@
   <service>
     <name>recovery_guard</name>
     <description>Recovery Guard monitor</description>
-    <rcfile>recovery_guard.sh</rcfile>
+    <!-- rcfile is owned and unlinked by pfSense during service removal.
+         This script belongs to pkg-plist; keep its ownership with pkg. -->
+    <rcfile/>
+    <startcmd>mwexec('/usr/local/etc/rc.d/recovery_guard.sh start');</startcmd>
+    <stopcmd>mwexec('/usr/local/etc/rc.d/recovery_guard.sh stop');</stopcmd>
+    <starts_on_sync/>
     <custom_php_service_status_command>is_pid_running('/var/run/recovery_guard.pid')</custom_php_service_status_command>
   </service>
   <custom_php_resync_config_command>recovery_guard_service_apply();</custom_php_resync_config_command>

@@ -1,6 +1,6 @@
 PORTNAME=	pfSense-pkg-Recovery_Guard
 PORTVERSION=	0.1.0.a1
-PORTREVISION=	12
+PORTREVISION=	15
 CATEGORIES=	sysutils
 MASTER_SITES=	# empty
 DISTFILES=	# empty
@@ -30,9 +30,11 @@ do-install:
 	${INSTALL_PROGRAM} ${WRKSRC}/recovery-guard-repair ${STAGEDIR}${PREFIX}/libexec/
 	${MKDIR} ${STAGEDIR}${PREFIX}/pkg/recovery_guard ${STAGEDIR}${PREFIX}/www ${STAGEDIR}${DATADIR}
 	${MKDIR} ${STAGEDIR}${PREFIX}/etc/rc.d
+	${MKDIR} ${STAGEDIR}${PREFIX}/pkg/priv
 	${INSTALL_SCRIPT} ${FILESDIR}${PREFIX}/etc/rc.d/recovery_guard.sh ${STAGEDIR}${PREFIX}/etc/rc.d/
 	${INSTALL_DATA} ${FILESDIR}${PREFIX}/pkg/recovery_guard/*.php ${STAGEDIR}${PREFIX}/pkg/recovery_guard/
 	${INSTALL_DATA} ${FILESDIR}${PREFIX}/pkg/recovery_guard.inc ${FILESDIR}${PREFIX}/pkg/recovery_guard.xml ${STAGEDIR}${PREFIX}/pkg/
+	${INSTALL_DATA} ${FILESDIR}${PREFIX}/pkg/priv/recovery_guard.priv.inc ${STAGEDIR}${PREFIX}/pkg/priv/
 	${INSTALL_DATA} ${FILESDIR}${PREFIX}/www/services_recovery_guard.php ${STAGEDIR}${PREFIX}/www/
 	${INSTALL_DATA} ${FILESDIR}${DATADIR}/info.xml ${STAGEDIR}${DATADIR}/
 	@${REINPLACE_CMD} -i '' -e 's|%%PKGVERSION%%|${PKGVERSION}|' ${STAGEDIR}${DATADIR}/info.xml

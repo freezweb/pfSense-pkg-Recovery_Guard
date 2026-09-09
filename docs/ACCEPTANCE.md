@@ -1,50 +1,40 @@
 # Acceptance evidence and remaining work
 
-The goal is availability in the official pfSense package repository, not merely a submitted pull request. It remains open.
+The goal is availability in the official pfSense package repository. It remains open: no Netgate pull request, acceptance or official package availability is claimed. The shipped package remains a monitor-only development preview.
 
-## Verified implementation
+## Current native evidence, 2026-09-09
 
-- Independent, side-effect-free recovery policy; sustained failure confirmation, reboot and repair budgets, boot grace, tri-state probes, maintenance and upgrade suppression.
-- Atomic journal with a separate writer lock, bounded JSON, restrictive permissions, file fsync, rename and parent-directory fsync. An initialization sentinel prevents a missing journal from being silently replaced with an empty action budget.
-- Action coordination: reservation before execution, evidence capture before execution, fresh interlocks checked again after capture, explicit executor receipts, conservative treatment of ambiguous commits and action completion.
-- Monitor, service-repair and recovery modes. Mode changes reconfirm faults while retaining conservative reservations. Mode-inhibited proposals can temporarily consume their cooldown; they are never reported as executed actions.
-- Local FastCGI challenge through the PHP-FPM Unix socket. The challenge script resides outside the web document root. No administrator credentials, nginx dependency or public HTTP route are required.
-- Local PHP 8.3 tests and pfSense CE 2.8.1 / PHP 8.3.19 execution with native directory fsync. Real PHP-FPM challenge succeeds; all restart executors used in integration tests are fakes.
-- Network collector and volatile peer-baseline tests pass on Windows and pfSense CE 2.8.1. Native bounded-command adapter successfully reads FreeBSD OS type and an explicitly selected active physical interface. These passive successes do not validate timeout or descendant cleanup.
-- Volatile coordinator observations avoid per-sample journal commits. Mode transitions, reservations and receipts remain durable; every sample re-reads and validates the journal under its lock. Restart, competing writes and transaction errors discard cached confirmation while preserving budgets. Expanded 76-check integration suite passes on Windows and pfSense CE 2.8.1 with native fsync on the latter.
-- Isolated FreeBSD 15.0-p13 / PHP 8.3.33 VM: integration, transport and network suites pass; eight native process cases pass, including detached/TERM-resistant descendants and interrupted timeout-wrapper handling. A real guest reboot changed boot identity while preserving the exact journal hash and durable reboot budget. Fresh-supervisor and synthetic post-reboot policy checks passed. This is platform-library evidence, not actual pfSense service recovery or package acceptance.
+A separate isolated VM now runs the officially installed pfSense CE 2.9.0-RELEASE, FreeBSD 16.0-CURRENT and PHP 8.5.7. The approved installer download is resolved and its SHA256 verified. No production guest was stopped or reconfigured.
+
+- 414 component checks passed on the native guest, including original config.xml parser round trips. Eight native process, ten notification-worker, seventeen private-FPM repair-controller and sixteen native upgrade-wrapper lease checks also passed. Fixture actions and native actions are distinguished in [VALIDATION.md](VALIDATION.md).
+- The 42-file port builds for the actual FreeBSD 16 ABI and PHP 8.5 dependency set. Compile, stage, check-plist, stage-qa and package pass. The FreeBSD 15 binary was not forced onto pfSense.
+- Actual package hooks exposed and then verified a service-registration fix: pfSense previously removed a pkg-owned rc script before custom deinstallation. Explicit native start/stop commands preserve package ownership. Nineteen native lifecycle checks now pass for replacement, removal and reinstall, including exact retained budget hashes and rejection of hidden hook errors even when pkg returns success. Native registered stop/start and after-sync controls also pass.
+- Native HTTPS authentication, CSRF rejection with unchanged config.xml, authenticated settings save, monitor startup and authenticated diagnostics export pass. TLS uses the real certificate, matching hostname and explicit CA trust; no verification bypass. Eight native restricted-user authentication/privilege checks now pass after adding the runtime privilege definition; visual browser rendering remains untested.
+- Existing platform evidence includes real isolated FreeBSD reboot persistence, 23 full/read-only filesystem checks, nine SMTP encryption/authentication cases and three anonymous SMTP cases. These are supporting evidence, not pfSense native cleanup or notification configuration integration.
+
+The policy, atomic durable budgets, bounded collectors, diagnostic retention, repair controller, native upgrade lease, one-use reboot handoff and default-off notifications are implemented. See [PLATFORM.md](PLATFORM.md), [RUNTIME.md](RUNTIME.md) and the chronological [validation record](VALIDATION.md).
 
 ## Required before release
 
-Native configuration development now includes a validated compiler, package-scoped save adapter, preview page, XML metadata, registration scripts and a complete port staging tool. The preview supplies an independent monitor daemon and native service hooks; repair and recovery remain disabled. Its rc lifecycle, exclusive lease, persistent-budget initialization and bounded worker handling pass 27 isolated FreeBSD service checks with a fixture entrypoint. The dependency-bearing port passes `stage`, `check-plist`, `stage-qa` and `package`. This is not installation/GUI/lifecycle validation on pfSense. See [port scope](PORT.md) and [build evidence](VALIDATION.md).
+1. Finish the full autonomous native runtime/fault sequence, real failed-peer reconfirmation and upgrade collisions. Real PHP-FPM fault/repair with a two-minute confirmation interval and a synthetic-fault native cleanup reboot harness now pass, including post-boot budget preservation. Keep the monitor-only gate until the supported active path is established.
+2. Complete native notification configuration/worker TLS and authentication integration, native diagnostic retention and visual UI review. Validate HA/CARP inhibition and total runtime I/O, including metadata and notification/evidence writes. IPv6 peer probes are not implemented.
+3. Complete resource-exhaustion, concurrent-supervisor and supported-version fault/lifecycle coverage. Private tmpfs failures do not establish physical I/O hang or power-loss durability. Production remains limited to passive probes and pure tests.
+4. Test the latest pfSense development target as Netgate requires, as well as isolated CE 2.8.1 compatibility. Rebuild for each actual ABI/PHP dependency set.
+5. Review the final source and support artifacts for unsafe defaults, secrets, private topology and personal data. Publish only this isolated repository.
+6. Submit the complete port to pfsense/FreeBSD-ports, address maintainer review and verify actual official package availability. Acceptance is Netgate's decision.
 
-1. Validate the joined RuntimeSupervisor/configuration/collector/baseline and native snapshot/interlock path on supported pfSense guests. Bounded socket-retry log sampling is implemented and tested, but alternate log formats and complete native integration remain. IPv6 endpoint probes are not implemented.
-2. Validate the now-integrated native repair, upgrade lease, reboot dispatcher/worker and supervisor retirement on actual pfSense, including fresh functional fault reconfirmation and post-boot observation. Validate the notification worker and native SMTP settings (including authentication/TLS), and the 64-record diagnostic retention through native lifecycle tests. The repair path passes seventeen isolated FreeBSD checks including a real private PHP-FPM daemon through the integrated executor; it has not executed pfSense's full restart script. Keep the monitor-only release gate until native cleanup/upgrade collisions and supported operation are validated. Verify total runtime I/O, including filesystem metadata and notification/evidence writes.
-3. Validate native config.xml storage and GUI on pfSense, including the implemented service registration, install/upgrade/deinstall hooks and explicit first initialization. Preserve budgets through all normal lifecycle changes. Validate HA/CARP behavior; current coordinator suppresses all active actions when HA is configured.
-4. Extend the established isolated FreeBSD VM lab to actual pfSense guests. Twenty-three real full/read-only filesystem checks now pass on a private FreeBSD tmpfs; physical I/O hangs and power-loss durability are not established by that fixture. Complete resource-exhaustion, concurrent-supervisor, service-recovery, package-lifecycle and supported-version tests on pfSense. A production appliance is only used for passive probes and pure tests.
-5. Test the current pfSense development version, as required by Netgate, in addition to CE 2.8.1 compatibility. Repeat the successful preview port build for the complete package in supported pfSense build environments, including runtime dependencies and permissions.
-6. Review source and generated support artifacts for secrets, private topology, personal data and unsafe defaults. Publish only this isolated repository, never its parent workspace.
-7. Publish the generic source, submit the complete port to `pfsense/FreeBSD-ports`, address maintainer review and verify actual official package availability.
+## Target versions and external constraints
 
-## External constraints
-
-Netgate decides whether to accept a package. No PR has been submitted yet. The existing account and a fulfilled installer order are now accessible in the in-app browser. The order's download is blocked by the browser and returned HTTP 404 on a direct request; the user has been asked to supply the downloaded file's local path. Installation media and current development-channel access remain to be established. The dedicated FreeBSD VM has completed its official first-boot updates, native process checks and a real reboot-persistence test. No production guest has been stopped or reconfigured. See [lab tracking](LAB.md).
-
-The current GitHub OAuth credential lacks the workflow scope. Therefore the prepared GitHub Actions definition is tracked as `ci/github-actions-tests.yml`, not installed as an active workflow. Source publication and direct test execution do not depend on this permission. Do not claim hosted CI has run until a real workflow run has been verified.
-
-The user explicitly approved the free installer checkout on 2026-09-09. The order completed for one AMD64 ISO installer at USD 0.00; Netgate confirmed it in the browser and by email. The fresh download page advertises netgate-installer-v1.2-RELEASE-amd64.iso.gz (327 MB), but Chrome blocks its delivery redirect with ERR_BLOCKED_BY_CLIENT. No local installer or matching checksum has been verified. User completion of the browser download is required; the browser restriction has not been bypassed. Private order and billing records are kept outside this repository. Real SMTP encryption/authentication tests pass in the private FreeBSD laboratory; these do not replace the required native pfSense entrypoint tests.
-
-## Target versions revalidated on 2026-09-09
-
-| Target | Current evidence | Still required |
+| Target | Verified evidence | Remaining |
 | --- | --- | --- |
-| pfSense CE 2.9.0-DEVELOPMENT | Upstream master version and exact source revision verified; native APIs inspected | Actual isolated installation, runtime, GUI, lifecycle, repair/reboot and package build validation |
-| pfSense CE 2.8.1 | Passive native probes and pure tests on the existing appliance | Isolated supported-release lifecycle and failure tests |
-| FreeBSD 15.0-p13 / PHP 8.3.33 | Isolated component/process/TLS/storage/real guest reboot and port-build evidence | This is a supporting laboratory, not a substitute for either pfSense target |
-| PHP 8.5.10 on Windows | 411 component checks, 69 syntax checks and original pfSense XML round trips pass; official runtime archive hash verified | Native FreeBSD/pfSense execution and dependency versions remain unverified |
+| pfSense CE 2.9.0-RELEASE / FreeBSD 16 / PHP 8.5.7 | Official isolated install, component/process tests, native port build, real package lifecycle and authenticated HTTP GUI checks | Full autonomous recovery sequence and native release matrix |
+| pfSense development master | Remote HEAD rechecked: 9363ac5b8651a1c7a333180425ce7719070f95f9; version file says 2.9.0-DEVELOPMENT | Actual development-channel installation and runtime coverage; stable 2.9 is not relabeled as development |
+| pfSense CE 2.8.1 / PHP 8.3.19 | Passive native probes and pure tests on existing appliance | Isolated lifecycle/failure matrix |
+| FreeBSD 15.0-p13 / PHP 8.3.33 | Platform/process/TLS/storage/reboot and port-build evidence | Supporting lab only |
+| Windows PHP 8.5.10 | 411 component and 69 syntax checks | Platform inputs and directory fsync are fixtures |
 
-The current Netgate development guide names a FreeBSD 16.0-CURRENT builder. Do not transfer or force the FreeBSD 15 lab package onto a different ABI and call it supported; rebuild for the actual target. Recheck development and release versions immediately before the native test run and submission.
+The ports devel HEAD remains a621624266b19a7f48b1f94a60821d2c2fc6ee4c. The official development guide names a FreeBSD 16.0-CURRENT builder. The native 2.9 build uses PHP 8.5 explicitly; generic ports defaults must not override pfSense dependencies.
 
-The pinned pfSense system port excludes PHP 8.3 and 8.4 even though the generic ports framework defaults to 8.4. Include PHP 8.5 in the development-target audit. The prepared CI template now covers 8.3/8.4/8.5, but remains inactive; local component results do not establish native target compatibility.
+The GitHub OAuth credential lacks workflow scope. The prepared ci/github-actions-tests.yml remains an inactive template; no hosted CI run is claimed. Direct native test execution and source publication do not depend on this permission. Private order, billing, credentials and laboratory routes remain outside this repository.
 
 Sources: [Netgate package development](https://docs.netgate.com/pfsense/en/latest/development/develop-packages.html), [port layout](https://docs.netgate.com/pfsense/en/latest/development/package-directories.html), [installation media](https://docs.netgate.com/pfsense/en/latest/install/download-installer-image.html).

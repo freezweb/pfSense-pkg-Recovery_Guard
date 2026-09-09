@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 if (PHP_OS !== 'FreeBSD' || getenv('RECOVERY_GUARD_ISOLATED_LAB') !== '1' || !is_file('/root/RECOVERY_GUARD_ISOLATED_LAB')) throw new RuntimeException('Isolated FreeBSD laboratory required');
-$source = $argv[1] ?? '';
+// The native path as a command-line argument resembles a running upgrade to
+// the conservative process interlock. On pfSense use the installed default.
+$source = $argv[1] ?? '/usr/local/sbin/pfSense-upgrade';
 if (!is_file($source)) throw new RuntimeException('Pinned native upgrade wrapper required');
 foreach (['NativeUpgradeLease', 'ProbeProcess', 'Configuration', 'NativeSnapshot'] as $n) require __DIR__ . '/../src/' . $n . '.php';
 use RecoveryGuard\{NativeUpgradeLease, ProbeProcess, NativeSnapshot};

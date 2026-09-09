@@ -1,6 +1,6 @@
 # Isolated integration lab
 
-Status on 2026-09-09: the dedicated FreeBSD VM has completed first-boot updates, native process tests and a real reboot-persistence test. SSH host identity was checked against the serial console. This validates platform libraries; actual pfSense service-recovery and package-lifecycle tests remain open.
+Status on 2026-09-09: a separate official pfSense CE 2.9.0-RELEASE VM now complements the FreeBSD platform laboratory. Its native port build, package lifecycle and authenticated HTTP GUI checks pass. Active integration and development-channel coverage remain in progress. The sections below retain the earlier platform evidence separately.
 
 ## Provisioned baseline
 
@@ -110,3 +110,64 @@ RECOVERY_GUARD_ISOLATED_LAB=1 php tests/storage-lab.php
 The test mounts a new 8 MiB tmpfs under a newly created private root directory. It exhausts only that filesystem and separately remounts it read-only. It never fills or remounts the guest root filesystem, accesses a physical disk or invokes a real repair/reboot/mail sender. Cleanup unmounts its exact mount path, including after failed assertions.
 
 Twenty-three checks cover failed budget reservations, unchanged prior journals, reconfirmation after storage recovery, a full diagnostic store after a successful budget reservation, conservative cooldown without reboot escalation, and mail claim inhibition/recovery. The first fill attempt exposed a fixture issue: failure to allocate a large block can leave enough pages for a small journal. The final fixture exhausts progressively smaller allocations too. Retained results distinguish failure to create a temporary journal from failure to open the writer lock on a read-only filesystem. Tmpfs tests do not establish power-loss durability or behavior during an uninterruptible physical I/O hang; native fsync and injected ambiguous-commit tests remain separate evidence.
+
+## Official pfSense installation media and new native guest
+
+The fresh, user-approved free Netgate installer order is complete. A direct HTTPS download from its normal order endpoint on the laboratory host produced the official `netgate-installer-v1.2-RELEASE-amd64.iso.gz`. The compressed SHA256 is `184514fe7df0d339362c1e33fa051c464577a450528759b343ade894c7c57955`, matching Netgate's published checksum list; `gzip -t` also passes. The previous browser-download handoff is resolved without changing browser settings or using unofficial installation media.
+
+A separate temporary VM uses a dedicated unprivileged QEMU account and two user-mode networks, with no production bridge. Host egress rules scoped to that account reject private/reserved IPv4 destinations and IPv6, allowing public HTTP/HTTPS/DNS/NTP and established replies. Public HTTPS and rejection of private destinations were checked under that UID. Host IP forwarding remains disabled and the VM has no automatic boot. Management forwards bind only host loopback; the installer SSH key was verified against its serial-console fingerprint. Before starting after a host reboot, its egress rules must be restored and verified.
+
+The authentic installer supports its native serial console and CA-verified local installer API. Installation on the VM's verified new disk completed. Booting from disk and native package queries confirm CE 2.9.0-RELEASE, FreeBSD 16.0-CURRENT and PHP 8.5.7. The installed SSH fingerprint was checked through serial before use, and the dedicated GUI credential is stored in the authorized vault. This stable installation is distinct from current development-channel validation. The older FreeBSD fixture VM and all production guests remain unchanged.
+
+Source: [Netgate installer checksums](https://www.netgate.com/hubfs/pfSense-plus-installer-checksums.txt). Private order links, host routes, identities and provisioning details are kept outside this repository.
+
+## Real pfSense package lifecycle
+
+With the native package already installed on the isolated guest, enable monitor mode, maintenance on and notifications off. Initialize a private synthetic repair/reboot reservation in its journal through StateStore; the test deliberately requires nonempty budgets so preservation cannot pass trivially. Then run:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/pfsense-package-lab.php /absolute/path/to/candidate.pkg
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/upgrade-lease-lab.php
+```
+
+The first test replaces, removes and reinstalls the actual package. It verifies daemon processes, native menu/service registration, retained settings, exact journal hashes and installed-file integrity. Each pkg output is also checked for native hook failures that pkg may report without a failing exit status. Private logs remain under a unique /root/recovery-guard-package-* directory. This is native package-hook coverage, not an official repository GUI upgrade test.
+
+The second test uses the installed native upgrade wrapper with a private payload and lock path. Omit the wrapper argument on pfSense: its filename in the test command line correctly triggers the conservative process interlock. No real upgrade runs.
+
+The native service registration uses explicit startcmd/stopcmd and an empty rcfile because pfSense unlinks rcfile before custom deinstallation. The script is owned by pkg-plist and must remain until pkg removes its files. Native stop/start and after-sync behavior were checked after this fix.
+
+## Real native PHP-FPM recovery
+
+The following test disrupts the isolated pfSense guest's actual PHP-FPM. Keep SSH and serial recovery routes available and retain the lab network containment. The installed package must stay enabled in monitor mode with maintenance on and notifications off:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php -d display_errors=stderr tests/pfsense-repair-lab.php stop-and-repair-native-fpm
+```
+
+The test verifies the FPM master PID, stops it gracefully and samples a real failed FastCGI transaction for the default 120-second confirmation interval. It uses a separate durable budget/evidence store and an in-memory repair-mode configuration; network and log inputs are synthetic healthy observations. Actual boot identity and lifecycle interlocks remain native. The original installed fixed-command controller executes pfSense's unmodified PHP-FPM restart script. A failed test attempts to restore the laboratory service and records that fallback separately. Installed package configuration and its existing budgets must remain unchanged.
+
+Native reboot cleanup can now be exercised explicitly on the installed isolated pfSense guest:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 RECOVERY_GUARD_PFSENSE_CLEANUP=1 php tests/handoff-reboot-lab.php prepare /root/recovery-guard-handoff-reboot-native-example
+# Wait for the guest to boot and native boot/package activity to settle.
+RECOVERY_GUARD_ISOLATED_LAB=1 RECOVERY_GUARD_PFSENSE_CLEANUP=1 php tests/handoff-reboot-lab.php verify /root/recovery-guard-handoff-reboot-native-example
+```
+
+This variant retires the installed monitor through its actual rc stop, uses the shared native supervisor lease and native upgrade lease, and calls system_reboot_sync in the independent worker. It retains the installed monitor configuration and budget and checks them after boot. Fault inputs and the private coordinator timeline are synthetic. It tests native cleanup and one-use persistence, not the shipped daemon's complete autonomous failing-peer sequence. If preparation fails after the monitor was retired, inspect its evidence before restoring the monitor through the native service control.
+
+For actual restricted-user authentication and privilege checks:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/pfsense-gui-privilege-lab.php
+```
+
+The test creates a temporary GUI-only identity with a process-local random password, verifies settings/export denial, grants only the package page privilege, verifies access and removes the identity in finally. It does not create an OS/shell account or retain its password. The real pfSense TLS certificate, matching hostname and explicit CA trust remain enforced. No real administrator credential is required for this root-run laboratory fixture.
+
+The stronger joined collector/runtime repair test uses every native collector and real configured endpoint replies:
+
+```sh
+RECOVERY_GUARD_ISOLATED_LAB=1 php tests/pfsense-runtime-lab.php stop-and-repair-native-fpm
+```
+
+It requires settled boot grace and initially healthy PHP/link/peers, runs three healthy qualification cycles, then stops the actual FPM master and allows the full RuntimeSupervisor to confirm and repair the fault using real clocks. Only its in-memory recovery settings and private budget differ from the installed monitor. The native log worker is closed and the lab PHP service restored even after test failure. The test never requests a reboot.

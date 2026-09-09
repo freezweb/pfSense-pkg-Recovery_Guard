@@ -20,13 +20,19 @@ $child = pcntl_fork();
 if ($child === 0) {
     posix_setsid();
     pcntl_signal(SIGTERM, SIG_IGN);
-    file_put_contents($file, (string)getmypid());
+    // Publish readiness only after the complete PID has been written. Observing
+    // an empty, newly opened file could otherwise trigger cancellation too soon.
+    $pid = (string)getmypid();
+    if (file_put_contents($file . '.ready', $pid) !== strlen($pid) ||
+        !rename($file . '.ready', $file)) throw new RuntimeException('Cannot publish fixture PID');
     // Self-expiry also contains a deliberately killed controller fixture.
     $end = microtime(true) + 8;
     while (microtime(true) < $end) usleep(10000);
     exit(0);
 }
-while (!is_file($file)) usleep(1000);
+$readyDeadline = hrtime(true) + 2_000_000_000;
+while (!is_file($file) && hrtime(true) < $readyDeadline) { clearstatcache(); usleep(1000); }
+if (!is_file($file)) throw new RuntimeException('Fixture readiness timed out');
 if ($mode === 'success') exit(0);
 if ($mode === 'failure') exit(7);
 if ($mode === 'killed') posix_kill(posix_getppid(), SIGKILL);

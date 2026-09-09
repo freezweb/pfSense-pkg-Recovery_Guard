@@ -4,6 +4,15 @@ declare(strict_types=1);
 if (PHP_OS !== 'FreeBSD' || getenv('RECOVERY_GUARD_ISOLATED_LAB') !== '1' || !is_file('/root/RECOVERY_GUARD_ISOLATED_LAB')) throw new RuntimeException('Explicit isolated FreeBSD lab required');
 foreach (['RecoveryPolicy', 'StateStore', 'DiagnosticJournal', 'ActionCoordinator', 'ServiceLoop', 'RebootHandoff', 'RebootDispatcher', 'ProbeProcess'] as $n) require __DIR__ . '/../src/' . $n . '.php';
 use RecoveryGuard\{RecoveryPolicy, StateStore, DiagnosticJournal, ActionCoordinator, ServiceLoop, RebootHandoff, RebootDispatcher, ProbeProcess, SupervisorBusy};
+$nativeCleanup = getenv('RECOVERY_GUARD_PFSENSE_CLEANUP') === '1';
+if ($nativeCleanup) {
+    if (posix_geteuid() !== 0 || !is_file('/etc/inc/system.inc') || !is_file('/usr/local/etc/rc.d/recovery_guard.sh')) throw new RuntimeException('Installed native pfSense laboratory required');
+    foreach (['Configuration', 'NativeSnapshot', 'NativeUpgradeLease'] as $n) require __DIR__ . '/../src/' . $n . '.php';
+    $nativeInitial = \RecoveryGuard\NativeSnapshot::read(new ProbeProcess());
+    $nativeConfig = \RecoveryGuard\Configuration::compile($nativeInitial['settings'], $nativeInitial['interfaces'], $nativeInitial['vlans'], $nativeInitial['virtual_ips']);
+    if (!$nativeConfig['enabled'] || $nativeConfig['mode'] !== 'monitor' || !$nativeConfig['maintenance'] || $nativeConfig['notifications']) throw new RuntimeException('Installed monitor must remain in maintenance with notifications off');
+    foreach ($nativeInitial['interlocks'] as $value) if ($value !== false) throw new RuntimeException('Native lifecycle must be clear');
+}
 umask(0077);
 $mode = $argv[1] ?? ''; $root = $argv[2] ?? '';
 if (!in_array($mode, ['prepare', 'worker', 'verify'], true) || !preg_match('~\A/root/recovery-guard-handoff-reboot-[a-z0-9-]+\z~D', $root) || is_link($root)) throw new RuntimeException('Explicit lab mode and private fixture path required');
@@ -24,9 +33,21 @@ if ($mode === 'prepare') {
         mkdir($root . '/' . $n, 0700); (new StateStore($root . '/' . $n))->exclusive(fn($s) => $s->provision($state));
     }
     mkdir($root . '/run', 0700);
+    if ($nativeCleanup) {
+        // Retire the installed monitor through its real rc stop before the fixture
+        // supervisor owns the same lease. Never reset the installed action budget.
+        $pid = (int)file_get_contents('/var/run/recovery_guard.pid');
+        if ($pid < 2 || !posix_kill($pid, 0)) throw new RuntimeException('Installed monitor not running');
+        saveEvidence($root . '/installed.json', ['monitor_pid' => $pid, 'settings' => $nativeInitial['settings'],
+            'budget_sha256' => hash_file('sha256', '/cf/conf/recovery_guard/state.json')]);
+        $p = proc_open(['/usr/local/etc/rc.d/recovery_guard.sh', 'stop'],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['file', $root . '/stop.log', 'w'], 2 => ['redirect', 1]], $pipes);
+        if (proc_close($p) !== 0 || posix_kill($pid, 0)) throw new RuntimeException('Installed monitor did not retire');
+    }
 }
 $budget = new StateStore($root . '/budget'); $intent = new StateStore($root . '/intent');
-$journal = new DiagnosticJournal(new StateStore($root . '/evidence')); $lease = new ServiceLoop($root . '/run');
+$journal = new DiagnosticJournal(new StateStore($root . '/evidence'));
+$lease = new ServiceLoop($nativeCleanup ? '/var/run/recovery_guard' : $root . '/run');
 $handoff = new RebootHandoff($budget, $intent, $journal, time(...));
 if ($mode === 'verify') {
     $expected = json_decode(file_get_contents($root . '/expected.json'), true, flags: JSON_THROW_ON_ERROR);
@@ -46,23 +67,54 @@ if ($mode === 'verify') {
         hash_file('sha256', $root . '/budget/state.json') !== $expected['budget_sha256'] ||
         hash_file('sha256', $root . '/intent/state.json') !== $claimed['intent_sha256'] ||
         (!$changed && hash_file('sha256', $root . '/evidence/state.json') !== $before)) throw new RuntimeException('New boot reconciliation not established');
-    echo "PASS: real isolated guest reboot; new boot reconciled, budget and claimed intent hashes preserved, replay inhibited.\n";
+    if ($nativeCleanup) {
+        $installed = json_decode(file_get_contents($root . '/installed.json'), true, flags: JSON_THROW_ON_ERROR);
+        $pid = (int)file_get_contents('/var/run/recovery_guard.pid');
+        if ($pid < 2 || !posix_kill($pid, 0) || $nativeInitial['settings'] !== $installed['settings'] ||
+            hash_file('sha256', '/cf/conf/recovery_guard/state.json') !== $installed['budget_sha256']) throw new RuntimeException('Installed monitor/settings/budget not preserved after native reboot');
+        echo "PASS: pfSense system_reboot_sync cleanup with installed package, native upgrade lease and shared supervisor lease; monitor restarted, installed settings/budget preserved.\n";
+    }
+    echo "PASS: real isolated guest reboot; new boot reconciled, private budget and claimed intent hashes preserved, replay inhibited. Synthetic fault observations.\n";
     exit(0);
 }
 if ($mode === 'worker') {
     $expected = json_decode(file_get_contents($root . '/expected.json'), true, flags: JSON_THROW_ON_ERROR);
-    $fresh = fn() => ['enabled' => true, 'mode' => 'recover', 'boot_id' => bootId(), 'context_id' => $expected['context_id'],
+    $fresh = function () use ($nativeCleanup, $expected): array {
+        $checks = ['enabled' => true, 'mode' => 'recover', 'boot_id' => bootId(), 'context_id' => $expected['context_id'],
         'maintenance' => false, 'upgrade' => false, 'ha_configured' => false, 'other_repair' => false, 'shutting_down' => false,
         'php_ok' => false, 'local_reachable' => false, 'critical_link_up' => false, 'log_storm' => null];
+        if ($nativeCleanup) {
+            $native = \RecoveryGuard\NativeSnapshot::read(new ProbeProcess());
+            $checks = array_replace($checks, $native['interlocks'], ['boot_id' => $native['boot_id']]);
+        }
+        return $checks;
+    };
+    if ($nativeCleanup) {
+        $upgrade = new \RecoveryGuard\NativeUpgradeLease();
+        $unlockedFresh = $fresh;
+        $fresh = static function () use ($unlockedFresh, $upgrade): array {
+            $checks = $unlockedFresh(); $upgrade->assertCurrent(); return $checks;
+        };
+    }
     $end = hrtime(true) + 20000000000;
     do {
         try {
-            $handoff->invoke($argv[3] ?? '', $lease, $fresh, function () use ($root): void {
+            $invoke = function () use ($handoff, $argv, $lease, $fresh, $root, $nativeCleanup): void {
+              $handoff->invoke($argv[3] ?? '', $lease, $fresh, function () use ($root, $nativeCleanup): void {
                 saveEvidence($root . '/claimed.json', ['intent_sha256' => hash_file('sha256', $root . '/intent/state.json')]);
+                if ($nativeCleanup) {
+                    require_once('config.inc'); require_once('functions.inc');
+                    system_reboot_sync();
+                    return;
+                }
                 // FreeBSD lab action, deliberately not presented as pfSense native cleanup.
                 $p = proc_open(['/sbin/shutdown', '-r', 'now'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
                 proc_close($p);
-            });
+              });
+            };
+            if ($nativeCleanup) {
+                $upgrade->exclusive(fn() => (\RecoveryGuard\NativeSnapshot::read(new ProbeProcess())['interlocks']['upgrade'] ?? null) === false, $invoke);
+            } else { $invoke(); }
         } catch (SupervisorBusy) { usleep(100000); continue; }
         catch (RuntimeException) { exit(is_file($root . '/claimed.json') ? 0 : 1); }
     } while (hrtime(true) < $end);
