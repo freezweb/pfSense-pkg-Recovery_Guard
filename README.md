@@ -15,7 +15,8 @@ Recovery Guard is an independent recovery supervisor under development for pfSen
 - EndpointBaseline: a volatile baseline for two to eight explicitly configured peers. All peers must have demonstrated sustained health before their combined failure can become a negative observation. Boot/config changes, supervisor restarts and sampling gaps requalify the baseline.
 - Configuration: native LAN/VLAN mapping, static IPv4 peers, exclusion of firewall/network/broadcast addresses and upstream interfaces. Local probes check the expected direct route before and after a source-bound `ping -r`; uncertain routes inhibit the observation.
 - Native configuration page and port staging: package-scoped config storage, input validation, failed-save handling and an exact generated install manifest. The current page cannot enable a supervisor or arm recovery. See [port build and validation boundaries](docs/PORT.md).
-- RuntimeSupervisor: joined collection, peer qualification and action coordination, with snapshots before and after probes, fresh configuration checks before actions, a 25-second observation deadline and clock-change inhibition. It is a callable runtime cycle; the native daemon and platform snapshot adapter remain to be wired.
+- RuntimeSupervisor: joined collection, peer qualification and action coordination, with snapshots before and after probes, fresh configuration checks before actions, a 25-second observation deadline and clock-change inhibition. It is a callable runtime cycle; the installed native daemon and action adapters remain incomplete.
+- NativeSnapshot: bounded read-only worker using pfSense's original XML parser and native boot/process observations. It returns selected topology and lifecycle flags, never credentials, raw process arguments or the full config. Passive execution on pfSense CE 2.8.1 leaves config.xml and config.cache unchanged.
 - LogRateProbe: volatile, bounded sampling of native PHP-FPM socket retry messages. Historical records are skipped; partial coverage is unknown unless the observed lower bound already proves a storm. Rotation tests retain evidence through the old descriptor without treating replacement history as fresh failures.
 
 Default policy: confirm PHP failure for two minutes, then propose one service repair. Escalate only after ten minutes of continuous combined failure and at least three minutes after a confirmed repair attempt. Reserve at most one reboot per 24 hours and one service repair per 15 minutes. A failed WAN ping, an unplugged link or a GUI-only failure with working LAN is not sufficient for a reboot.
@@ -32,6 +33,7 @@ php tests/fastcgi.php
 php tests/network.php
 php tests/configuration.php
 php tests/runtime.php
+php tests/snapshot.php
 php tools/stage-port.php
 php tests/native-config.php
 php examples/replay-outage.php

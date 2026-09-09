@@ -9,7 +9,7 @@
 require('guiconfig.inc');
 require_once('/usr/local/pkg/recovery_guard.inc');
 $input_errors = [];
-$pconfig = config_get_path('installedpackages/recoveryguard/config', []);
+$pconfig = config_get_path('installedpackages/recoveryguard/settings', []);
 if ($_POST) {
     $pconfig = ['version' => '1', 'mode' => 'monitor',
         'interface' => $_POST['interface'] ?? '', 'peers' => $_POST['peers'] ?? ''];

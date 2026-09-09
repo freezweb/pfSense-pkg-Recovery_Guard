@@ -28,9 +28,15 @@ jobs:
         run: php tests/configuration.php
       - name: Joined runtime and bounded log sampling
         run: php tests/runtime.php
+      - name: Native snapshot projection
+        run: php tests/snapshot.php
       - name: Stage complete port and test config adapter
         run: |
           php tools/stage-port.php
           php tests/native-config.php
+      - name: Original pfSense XML round trip
+        run: |
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pfsense/pfsense/9363ac5b8651a1c7a333180425ce7719070f95f9/src/etc/inc/xmlparse.inc -o "$RUNNER_TEMP/pfsense-xmlparse.inc"
+          php tests/native-xml.php "$RUNNER_TEMP/pfsense-xmlparse.inc"
       - name: Simulated incident
         run: php examples/replay-outage.php

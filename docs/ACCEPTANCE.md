@@ -28,7 +28,7 @@ Native configuration development now includes a validated compiler, package-scop
 
 ## External constraints
 
-Netgate decides whether to accept a package. No PR has been submitted yet. The Netgate installer is distributed through the free store checkout and requires an account. An existing account has been located, but the regular browser login is waiting for a blocking extension UI to be closed; installation media and current development-channel access still need to be established. The dedicated FreeBSD VM has completed its official first-boot updates, native process checks and a real reboot-persistence test. No production guest has been stopped or modified. See [lab tracking](LAB.md).
+Netgate decides whether to accept a package. No PR has been submitted yet. The existing account and a fulfilled installer order are now accessible in the in-app browser. The order's download is blocked by the browser and returned HTTP 404 on a direct request; the user has been asked to supply the downloaded file's local path. Installation media and current development-channel access remain to be established. The dedicated FreeBSD VM has completed its official first-boot updates, native process checks and a real reboot-persistence test. No production guest has been stopped or reconfigured. See [lab tracking](LAB.md).
 
 The current GitHub OAuth credential lacks the workflow scope. Therefore the prepared GitHub Actions definition is tracked as `ci/github-actions-tests.yml`, not installed as an active workflow. Source publication and direct test execution do not depend on this permission. Do not claim hosted CI has run until a real workflow run has been verified.
 

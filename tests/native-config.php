@@ -8,7 +8,7 @@ $fixture_config = ['interfaces' => ['lan' => ['enable' => '', 'if' => 'em1', 'ip
 $fixture_writes = 0; $fixture_write_result = 'success'; $checks = 0;
 $settings = ['interface' => 'lan', 'peers' => "192.0.2.2\n192.0.2.3", 'maintenance' => 'on'];
 recovery_guard_save_settings($settings);
-if ($fixture_writes !== 1 || config_get_path('installedpackages/recoveryguard/config/mode') !== 'monitor' ||
+if ($fixture_writes !== 1 || config_get_path('installedpackages/recoveryguard/settings/mode') !== 'monitor' ||
     config_get_path('system/hostname') !== 'unchanged' || config_get_path('installedpackages/otherpackage/keep') !== 'unchanged') throw new RuntimeException('Native save modified unrelated settings');
 $checks++;
 $saved = $fixture_config;

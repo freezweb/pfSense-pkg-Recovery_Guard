@@ -16,7 +16,8 @@ function recovery_guard_save_settings(array $settings): void
     if ($compiled['enabled'] || $compiled['mode'] !== 'monitor') {
         throw new RuntimeException('Monitoring and active recovery are not available in this development build.');
     }
-    $path = 'installedpackages/recoveryguard/config';
+    // "config" is a native XML list tag; use a non-list element for this object.
+    $path = 'installedpackages/recoveryguard/settings';
     $previous = config_get_path($path, null);
     config_set_path($path, \RecoveryGuard\Configuration::native($compiled));
     try {
