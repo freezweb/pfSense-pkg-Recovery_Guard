@@ -38,7 +38,15 @@ if ($mode === 'verify') {
     $ran = false;
     try { $handoff->invoke($expected['token'], $lease, fn() => [], function () use (&$ran) { $ran = true; }); } catch (RuntimeException) {}
     if ($ran) throw new RuntimeException('Consumed reboot was replayed');
-    echo "PASS: handoff initiated a real isolated guest reboot; boot identity changed, budget and claimed intent hashes survived, replay inhibited.\n";
+    $boot = bootId(); $now = time(); $bootSeconds = (int) explode(':', $boot)[1];
+    $before = hash_file('sha256', $root . '/evidence/state.json');
+    $changed = $handoff->reconcile(['boot_id' => $boot, 'time' => $now, 'uptime' => $now - $bootSeconds, 'monotonic_ns' => hrtime(true)]);
+    $records = $journal->records(); $last = end($records);
+    if ($last['result'] !== 'boot_observed' || $last['boot_observation']['boot_id'] !== $boot ||
+        hash_file('sha256', $root . '/budget/state.json') !== $expected['budget_sha256'] ||
+        hash_file('sha256', $root . '/intent/state.json') !== $claimed['intent_sha256'] ||
+        (!$changed && hash_file('sha256', $root . '/evidence/state.json') !== $before)) throw new RuntimeException('New boot reconciliation not established');
+    echo "PASS: real isolated guest reboot; new boot reconciled, budget and claimed intent hashes preserved, replay inhibited.\n";
     exit(0);
 }
 if ($mode === 'worker') {

@@ -71,6 +71,20 @@ final class RebootHandoff
     {
         return $this->intents->exclusive(function ($s) { $state = $s->read(); self::validate($state); return $state; });
     }
+
+    /** Observe a later boot without replaying the intent or changing either action budget. */
+    public function reconcile(array $observation): bool
+    {
+        return $this->budget->exclusive(function ($budget) use ($observation): bool {
+            $state = $budget->read();
+            if (!(new RecoveryPolicy())->acceptsState($state)) throw new \RuntimeException('Invalid retained action budget');
+            return $this->intents->exclusive(function ($s) use ($state, $observation): bool {
+                $saved = $s->read(); self::validate($saved); $intent = $saved['intent'];
+                if ($intent === null || $intent['claimed_at'] === null || !in_array($intent['time'], $state['reboot_times'], true)) return false;
+                return $this->evidence->observeBoot($intent, $observation);
+            });
+        });
+    }
     private function evidenceFor(array $proposal, array $budget): array
     {
         if (!(new RecoveryPolicy())->acceptsState($budget) || $budget['operating_mode'] !== 'recover' ||

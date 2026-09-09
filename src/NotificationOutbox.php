@@ -130,7 +130,7 @@ final class NotificationOutbox
         return array_keys($e) === ['action_id', 'kind', 'mode', 'result', 'time'] &&
             is_string($e['action_id']) && preg_match('/\A[a-zA-Z0-9_.:-]{1,130}\z/D', $e['action_id']) === 1 &&
             in_array($e['kind'], ['repair_php_fpm', 'reboot'], true) && in_array($e['mode'], ['monitor', 'repair', 'recover'], true) &&
-            in_array($e['result'], ['proposed', 'mode_inhibited', 'interlock_inhibited', 'completed', 'failed', 'timeout_cleaned', 'handoff_pending', 'unknown'], true) &&
+            in_array($e['result'], ['proposed', 'mode_inhibited', 'interlock_inhibited', 'completed', 'failed', 'timeout_cleaned', 'handoff_pending', 'unknown', 'boot_observed'], true) &&
             is_int($e['time']) && $e['time'] >= 0;
     }
     private static function validate(array $s): void

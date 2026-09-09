@@ -15,6 +15,7 @@ final class NotificationMessage
             'completed' => 'The action executor reported completion.', 'failed' => 'The action attempt failed.',
             'timeout_cleaned' => 'The action timed out; process cleanup was verified.',
             'handoff_pending' => 'A reboot was handed off; a completed reboot has not been established.',
+            'boot_observed' => 'A new boot was observed after a claimed reboot request. This does not establish the cause of the boot or recovery of services.',
             'unknown' => 'Action completion could not be established.'];
         return ['subject' => 'Recovery Guard: ' . $e['result'], 'message_id' => '<recovery-guard-' . $job['id'] . '@localhost>',
             'body' => "Recovery Guard\n" . $descriptions[$e['result']] . "\nAction: " . $e['kind'] . "\nMode: " . $e['mode'] .

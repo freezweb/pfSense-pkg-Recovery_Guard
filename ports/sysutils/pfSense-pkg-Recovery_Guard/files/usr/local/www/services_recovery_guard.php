@@ -11,7 +11,7 @@ require_once('/usr/local/pkg/recovery_guard.inc');
 if (isset($_GET['download']) && !$_POST) {
     header('Cache-Control: no-store');
     try {
-        $bytes = json_encode(['version' => 1, 'records' => recovery_guard_diagnostics()], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+        $bytes = json_encode(['version' => 2, 'records' => recovery_guard_diagnostics()], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
         header('Content-Type: application/json');
         header('Content-Disposition: attachment; filename="recovery-guard-diagnostics.json"');
         echo $bytes;
@@ -82,7 +82,7 @@ try {
         echo '<p>' . gettext('No action proposals have been recorded.') . '</p>';
     } else {
         $results = ['pending' => gettext('No outcome recorded'), 'handoff_pending' => gettext('Reboot handed off; completion unconfirmed'), 'mode_inhibited' => gettext('Monitoring only'),
-            'interlock_inhibited' => gettext('Inhibited by maintenance or configuration'), 'completed' => gettext('Completed'),
+            'interlock_inhibited' => gettext('Inhibited by maintenance or configuration'), 'completed' => gettext('Completed'), 'boot_observed' => gettext('New boot observed; cause and service recovery unconfirmed'),
             'failed' => gettext('Failed'), 'timeout_cleaned' => gettext('Timed out; process cleanup verified'), 'unknown' => gettext('Completion unknown')];
         $tri = static fn($v) => $v === null ? gettext('Unknown') : ($v ? gettext('Yes') : gettext('No'));
         echo '<div class="table-responsive"><table class="table table-striped table-condensed"><thead><tr>';
@@ -91,7 +91,7 @@ try {
         foreach ($records as $record) {
             $s = $record['sample'];
             $cells = [date('Y-m-d H:i:s T', $s['time']), $record['kind'] === 'reboot' ? gettext('Reboot') : gettext('Repair PHP-FPM'),
-                $results[$record['result']], $tri($s['php_ok']), $tri($s['critical_link_up']), $tri($s['local_reachable']), $tri($s['log_storm'])];
+                $results[$record['result']] . (isset($record['boot_observation']) ? ' (' . date('Y-m-d H:i:s T', $record['boot_observation']['time']) . ')' : ''), $tri($s['php_ok']), $tri($s['critical_link_up']), $tri($s['local_reachable']), $tri($s['log_storm'])];
             echo '<tr>';
             foreach ($cells as $cell) echo '<td>' . htmlspecialchars($cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</td>';
             echo '</tr>';

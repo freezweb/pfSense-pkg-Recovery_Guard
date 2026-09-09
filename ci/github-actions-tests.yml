@@ -36,6 +36,8 @@ jobs:
         run: php tests/reboot-verifier.php
       - name: Durable notification queue and SMTP adapter
         run: php tests/notifications.php
+      - name: Reboot outcome reconciliation
+        run: php tests/reconciliation.php
       - name: Stage complete port and test config adapter
         run: |
           php tools/stage-port.php

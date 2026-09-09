@@ -14,7 +14,7 @@ final class NotificationCycle
         if (($settings['booting'] ?? null) !== false) return 'unknown';
         $events = [];
         foreach ($this->diagnostics->records() as $r) $events[] = ['action_id' => $r['id'], 'kind' => $r['kind'], 'mode' => $r['mode'],
-            'result' => $r['result'] === 'pending' ? 'proposed' : $r['result'], 'time' => $r['sample']['time']];
+            'result' => $r['result'] === 'pending' ? 'proposed' : $r['result'], 'time' => $r['boot_observation']['time'] ?? $r['sample']['time']];
         $this->outbox->synchronize(NotificationSmtp::target($settings), $events);
         return (new NotificationDelivery($this->outbox, $this->sender, $this->clock))->once();
     }

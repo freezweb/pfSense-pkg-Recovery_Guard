@@ -44,6 +44,8 @@ try {
     $log = new \RecoveryGuard\LogWorker();
     $notification = $compiled['notifications'] ? new \RecoveryGuard\NotificationWorker() : null;
     $mailStatus = null;
+    $reconciled = false;
+    $handoff = new \RecoveryGuard\RebootHandoff($store, new \RecoveryGuard\StateStore($directory . '/handoff'), $diagnostics, time(...));
     $fpm = new \RecoveryGuard\FastCgiProbe();
     $runtime = new \RecoveryGuard\RuntimeSupervisor(new \RecoveryGuard\RecoveryPolicy(), $store, $snapshot,
         fn() => $fpm->check(), new \RecoveryGuard\NetworkProbe($runner->run(...)), $log->check(...),
@@ -51,7 +53,15 @@ try {
         static function (): never { throw new RuntimeException('Action adapter unavailable'); }, time(...), hrtimeNanoseconds(...), $diagnostics->outcome(...));
     openlog('recovery_guard', LOG_PID, LOG_DAEMON);
     syslog(LOG_NOTICE, 'Monitor service started');
-    (new \RecoveryGuard\ServiceLoop($runtimeDir))->run(static function () use ($runtime, $notification, &$mailStatus): array {
+    (new \RecoveryGuard\ServiceLoop($runtimeDir))->run(static function () use ($runtime, $notification, &$mailStatus, &$reconciled, $handoff, $initial): array {
+        if (!$reconciled) {
+            try {
+                if (!preg_match('/\Aboot:([0-9]+):[0-9]+\z/D', $initial['boot_id'], $boot)) throw new RuntimeException('Native boot identity unavailable');
+                if ($handoff->reconcile(['boot_id' => $initial['boot_id'], 'time' => (int) $boot[1] + $initial['uptime'],
+                    'uptime' => $initial['uptime'], 'monotonic_ns' => hrtime(true)])) syslog(LOG_NOTICE, 'New boot observed after a claimed reboot request; cause and service recovery are unconfirmed');
+            } catch (Throwable) { syslog(LOG_WARNING, 'Reboot outcome could not be reconciled; no intent was replayed'); }
+            $reconciled = true;
+        }
         $status = $runtime->cycle();
         if ($notification !== null) {
             try { $newStatus = $notification->tick(); } catch (Throwable) { $newStatus = 'unavailable'; }
