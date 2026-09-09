@@ -31,11 +31,11 @@ php examples/replay-outage.php
 
 The integration suite includes the policy suite. Coverage includes concurrent writer exclusion, repair/reboot reservation ordering, corrupted and missing state, ambiguous action commits, mode changes, fresh maintenance interlocks, malformed/fragmented FastCGI responses, output limits and timeouts.
 
-On Windows, only directory-fsync is simulated. The journal tests have also run on pfSense CE 2.8.1 / PHP 8.3.19 with native file and directory fsync. Actual system restarts and package lifecycle tests require an isolated lab and are not yet proven.
+On Windows, only directory-fsync is simulated. The journal tests have also run on pfSense CE 2.8.1 / PHP 8.3.19 with native file and directory fsync. Actual pfSense service recovery, automatic restart execution and package lifecycle remain unproven.
 
 The optional passive check tests/live-probe.php invokes the included challenge through the existing local PHP-FPM socket. It does not install a web route or alter services.
 
-The optional FreeBSD check `php tests/live-platform.php <interface>` reads the OS type and the explicitly named interface. Process timeout and descendant tests are separately guarded in `tests/process-lab.php` and have not yet run in an isolated FreeBSD lab. See [platform adapter constraints](docs/PLATFORM.md).
+The optional FreeBSD check `php tests/live-platform.php <interface>` reads the OS type and the explicitly named interface. Eight guarded process tests pass in an isolated FreeBSD 15.0-p13 guest, including detached descendants, ignored TERM signals and a killed timeout wrapper. A real guest reboot also preserves the exact journal hash and the action budget. See [lab evidence and reproduction](docs/LAB.md) and [platform adapter constraints](docs/PLATFORM.md).
 
 The example is a simulation with assumed continuous measurements and a simulated repair receipt. It does not establish how quickly a historical incident would have recovered.
 
@@ -43,7 +43,7 @@ The example is a simulation with assumed continuous measurements and a simulated
 
 Planned native port: sysutils/pfSense-pkg-Recovery_Guard, menu Services > Recovery Guard. The supervisor will run separately from PHP-FPM and use native pfSense repair routines. No core-file patches, cloud account, UniFi dependency or network scanning are planned.
 
-Remaining work includes bounded platform execution and collectors, durable notification delivery, native configuration and GUI, lifecycle hooks, build manifests, isolated failure/reboot tests and current pfSense development-version validation. See [acceptance tracking](docs/ACCEPTANCE.md).
+Remaining work includes integrating the collectors, real repair/reboot adapters, durable notification delivery, native configuration and GUI, lifecycle hooks, build manifests, isolated pfSense failure/reboot tests and current development-version validation. See [acceptance tracking](docs/ACCEPTANCE.md).
 
 A completely frozen kernel cannot run a local supervisor. A supported, separately tested hardware watchdog or independent management controller is required for that class of failure. Merely finding the FreeBSD watchdog interface does not prove hardware-reset support.
 

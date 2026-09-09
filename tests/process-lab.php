@@ -2,8 +2,9 @@
 declare(strict_types=1);
 require __DIR__ . '/../src/ProbeProcess.php';
 use RecoveryGuard\ProbeProcess;
-if (PHP_OS !== 'FreeBSD' || getenv('RECOVERY_GUARD_ISOLATED_LAB') !== '1') {
-    fwrite(STDERR, "Requires FreeBSD in an isolated lab and RECOVERY_GUARD_ISOLATED_LAB=1.\n");
+if (PHP_OS !== 'FreeBSD' || getenv('RECOVERY_GUARD_ISOLATED_LAB') !== '1' ||
+    !is_file('/root/RECOVERY_GUARD_ISOLATED_LAB')) {
+    fwrite(STDERR, "Requires FreeBSD, /root/RECOVERY_GUARD_ISOLATED_LAB and RECOVERY_GUARD_ISOLATED_LAB=1.\n");
     exit(2);
 }
 $runner = new ProbeProcess();
@@ -15,17 +16,27 @@ foreach ([
     ['timeout', ['/bin/sleep', '20'], 0.2, 1024, 'timeout', 124, ''],
     // A dead direct child must not hide a still-running grandchild.
     ['orphan descendant', ['/bin/sh', '-c', '/bin/sleep 20 & echo $!; exit 0'], 0.2, 1024, 'timeout', 124, null],
+    ['TERM resistant', [PHP_BINARY, __DIR__ . '/process-fixture.php', 'ignore_term'], 0.2, 1024, 'timeout', 124, null],
+    ['detached descendant', [PHP_BINARY, __DIR__ . '/process-fixture.php', 'detached'], 0.2, 1024, 'timeout', 124, null],
+    ['killed wrapper', [PHP_BINARY, __DIR__ . '/process-fixture.php', 'kill_wrapper'], 0.2, 1024, 'cleanup_unknown', null, null],
 ] as [$name, $command, $timeout, $limit, $status, $exitCode, $stdout]) {
     $result = $runner->run($command, $timeout, $limit);
-    if ($result['status'] !== $status || $result['exit_code'] !== $exitCode ||
+    if ($result['status'] !== $status || ($exitCode !== null && $result['exit_code'] !== $exitCode) ||
         strlen($result['stdout']) + strlen($result['stderr']) > $limit ||
         $result['duration_ms'] > ($timeout + 3.0) * 1000 ||
-        ($stdout !== null && $result['stdout'] !== $stdout)) throw new RuntimeException('Failed: ' . $name);
-    if ($name === 'orphan descendant') {
+        ($stdout !== null && $result['stdout'] !== $stdout)) throw new RuntimeException('Failed: ' . $name .
+            ' status=' . $result['status'] . ' exit=' . json_encode($result['exit_code']));
+    if (in_array($name, ['orphan descendant', 'TERM resistant', 'detached descendant', 'killed wrapper'], true)) {
         if (!function_exists('posix_kill')) throw new RuntimeException('Cannot verify descendant cleanup without POSIX');
         $pid = trim($result['stdout']);
-        if (!ctype_digit($pid) || (int) $pid < 2) throw new RuntimeException('Invalid descendant fixture PID');
+        if (!preg_match('/\A[0-9]+\z/D', $pid) || (int) $pid < 2) throw new RuntimeException('Invalid descendant fixture PID');
         usleep(100000);
+        if ($name === 'killed wrapper') {
+            // Unknown cleanup must never masquerade as a completed action. This finite
+            // fixture exits by itself, so wait for its cleanup without killing unrelated PIDs.
+            $deadline = hrtime(true) + 4000000000;
+            while (posix_kill((int) $pid, 0) && hrtime(true) < $deadline) usleep(10000);
+        }
         if (posix_kill((int) $pid, 0)) throw new RuntimeException('Descendant remains after timeout');
     }
     $checks++;
