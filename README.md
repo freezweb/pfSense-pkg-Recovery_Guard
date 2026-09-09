@@ -21,6 +21,7 @@ Recovery Guard is an independent recovery supervisor under development for pfSen
 - DiagnosticJournal: durable, bounded action evidence with 64-record retention, explicit outcomes, sanitized fields and conservative failure handling. Monitor proposals are recorded as inhibited. The native page includes a history and JSON export; rendering and access controls still need validation on pfSense.
 - Reboot handoff: durable one-use intent tied to the reserved budget, diagnostic evidence, boot and configuration. A worker takes the supervisor lease after retirement and rechecks maintenance/HA/upgrade gates and current PHP/LAN failure around the durable claim. Wall and monotonic deadlines prevent late execution. The native worker and dispatcher are development adapters; automatic recovery is still not connected.
 - RebootVerifier: fresh PHP transactions before and after direct checks of the exact configured LAN peers. A recovered or unknown result inhibits reboot. With an active link, a new five-second log observation must corroborate the fault; historical log messages cannot qualify. Configuration and clock changes also inhibit.
+- Notification components: durable 128-record outbox, eight bounded attempts, stale-worker rejection, target binding and sanitized messages with stable Message-ID. The SMTP adapter uses native settings and distinguishes relay acceptance from uncertain delivery. These components are not yet connected to service events or a bounded sender worker; the preview sends no notifications. See [delivery semantics and integration limits](docs/NOTIFICATIONS.md).
 - NativeSnapshot: bounded read-only worker using pfSense's original XML parser and native boot/process observations. It returns selected topology and lifecycle flags, never credentials, raw process arguments or the full config. Passive execution on pfSense CE 2.8.1 leaves config.xml and config.cache unchanged.
 - LogRateProbe: volatile, bounded sampling of native PHP-FPM socket retry messages. Historical records are skipped; partial coverage is unknown unless the observed lower bound already proves a storm. Rotation tests retain evidence through the old descriptor without treating replacement history as fresh failures.
 
@@ -41,6 +42,7 @@ php tests/runtime.php
 php tests/snapshot.php
 php tests/diagnostics.php
 php tests/reboot-verifier.php
+php tests/notifications.php
 php tools/stage-port.php
 php tests/native-config.php
 php examples/replay-outage.php

@@ -109,3 +109,11 @@ The expanded FreeBSD handoff suite passes 33 checks, including recovered/unknown
 The 31-file `0.1.0.a1_7` port passes compile, `stage`, `check-plist`, `stage-qa` and `package`. Package SHA256: `3a5577dc20bcf3ab10d7b567305e9d4642758812e310ba4369c37aea0d883c3b`. Source archive SHA256: `3c58caf135caab13490ffb5b7d5d46f6fe8273a780aa2950d6911d1f70f6164a`.
 
 The native worker is wired to this verifier, but the monitor and UI still reject automatic recovery mode. Actual pfSense cleanup/upgrade collisions, active-mode integration, notifications, outcome reconciliation and supported-version installation tests remain release requirements. No production service or configuration changed.
+
+## Durable notification components
+
+On 2026-09-09, seventy notification checks pass on Windows PHP 8.3 and isolated FreeBSD 15.0-p13 / PHP 8.3.33. They exercise real file persistence, restart/new-reader behavior, stale and expired receipts, clock reversal, lost workers, bounded attempts, overflow retention, ambiguous directory synchronization, sanitized messages, native SMTP parameter projection, password rotation and changed-recipient/TLS inhibition. Senders are injected fixtures; no real email is sent. Windows injects directory fsync, while FreeBSD uses native synchronization. The native SMTP adapter's default PEAR transport and total-worker deadline still need private-server integration tests.
+
+The 35-file `0.1.0.a1_8` port passes native compile, `stage`, `check-plist`, `stage-qa` and `package`, plus ten staged native-adapter/manifest checks. Package SHA256: `54404bf98624872d75af27545a3ba62e4aabfb3f9632f4cade16b233e435a5c3`. Source archive SHA256: `acaa5d25767301beef2988ba8954216cc4b40fac421fc749fc654c2b0a8cf568`. Guest source directory: `/root/recovery-guard-notifications`.
+
+The queue and SMTP adapter are shipped development components, not an enabled notification feature. Separate worker supervision, native opt-in, event production and delivery-status visibility remain required. No production configuration or service changed. No official submission or acceptance occurred.
